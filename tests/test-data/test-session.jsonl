@@ -1,0 +1,2 @@
+{"type":"user","message":{"content":[{"type":"text","text":"Test user message"}]},"timestamp":"2024-01-01T00:00:00Z","uuid":"user-uuid-1"}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Test assistant response with REVIEW_COMPLETED marker"}]},"timestamp":"2024-01-01T00:01:00Z","uuid":"assistant-uuid-1"}
