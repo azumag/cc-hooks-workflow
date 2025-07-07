@@ -148,6 +148,8 @@ teardown() {
     run bash -c "echo '$invalid_input' | $ORIGINAL_DIR/hooks/stop-hook.sh"
     [ "$status" -eq 1 ]
     
+    # Debug: Print the actual output for debugging
+    
     # Should still return valid JSON
     echo "$output" | jq . >/dev/null
     
