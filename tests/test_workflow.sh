@@ -6,7 +6,7 @@ set -euo pipefail
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-WORKFLOW_SCRIPT="$PROJECT_DIR/workflow"
+WORKFLOW_SCRIPT="$PROJECT_DIR/workflow.sh"
 
 # Test configuration
 TEST_SESSION_ID="test-session-$(date +%s)"
