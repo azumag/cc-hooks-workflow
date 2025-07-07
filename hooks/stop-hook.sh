@@ -37,7 +37,7 @@ if [ -n "$GIT_STATUS" ]; then
     echo "$GIT_STATUS" >&2
     
     # Add all changes
-    if ! git add -A; then
+    if ! git add -A >&2; then
         safe_exit "Failed to add files to git" "block"
     fi
     
@@ -49,7 +49,7 @@ if [ -n "$GIT_STATUS" ]; then
 Co-Authored-By: Claude <noreply@anthropic.com>"
     
     # Commit changes
-    if ! git commit -m "$COMMIT_MSG"; then
+    if ! git commit -m "$COMMIT_MSG" >&2; then
         safe_exit "Failed to commit changes" "block"
     fi
     
@@ -61,7 +61,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
         CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
         
         # Push changes
-        if git push origin "$CURRENT_BRANCH" 2>&1; then
+        if git push origin "$CURRENT_BRANCH" >&2; then
             echo "[stop-hook] Changes pushed successfully to origin/$CURRENT_BRANCH" >&2
             safe_exit "Files committed and pushed successfully. REVIEW_COMPLETED && PUSH_COMPLETED" "approve"
         else
@@ -87,7 +87,7 @@ else
                 # We have local commits not yet pushed
                 echo "[stop-hook] Local commits found that are not pushed" >&2
                 
-                if git push origin "$CURRENT_BRANCH" 2>&1; then
+                if git push origin "$CURRENT_BRANCH" >&2; then
                     echo "[stop-hook] Local commits pushed successfully" >&2
                     safe_exit "Local commits pushed successfully. REVIEW_COMPLETED && PUSH_COMPLETED" "approve"
                 else
