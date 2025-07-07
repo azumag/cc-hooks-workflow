@@ -48,7 +48,7 @@
 - [ ] サンプル hooks の実装
   - [ ] レビュー用 hooks (review-complete-hook.sh)
   - [ ] CI監視用 hooks (ci-monitor-hook.sh)
-  - [ ] エラーハンドリング hooks (shared-utils.sh)
+  - [x] エラーハンドリング hooks (shared-utils.sh)
 
 ## エラーハンドリング
 - [x] 一般的なエラー処理
