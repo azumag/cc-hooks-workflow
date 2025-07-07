@@ -48,7 +48,7 @@
 - [ ] サンプル hooks の実装
   - [ ] レビュー用 hooks (review-complete-hook.sh)
   - [ ] CI監視用 hooks (ci-monitor-hook.sh)
-  - [x] エラーハンドリング hooks (shared-utils.sh)
+  - [ ] エラーハンドリング hooks (shared-utils.sh) [YAGNI原則により削除 - 実使用時に作成]
 
 ## エラーハンドリング
 - [x] 一般的なエラー処理
@@ -143,11 +143,15 @@
    - **課題**: YAGNI/KISS原則に反する過度に複雑な機能
    - **解決**: 関数の簡素化、不要機能の削除、テストの簡素化
 
-4. **transcript処理の共通化**
+4. **YAGNI原則違反の共有ユーティリティ (解決済み)**
+   - **課題**: 使用者が存在しない`shared-utils.sh`の作成、workflow.shとの機能重複
+   - **解決**: YAGNI原則に従いファイルを削除、実際のhooks実装時に必要最小限で作成
+
+5. **transcript処理の共通化**
    - **成果**: hooks_old の洗練されたtranscript処理ロジックを再利用
    - **メリット**: セッション検証、ファイル検索、メッセージ抽出の堅牢性
 
-5. **CI監視タイムアウト問題 (300s) ⚠️  要設定変更**
+6. **CI監視タイムアウト問題 (300s) ⚠️  要設定変更**
    - **根本原因**: Claude Code設定が古い `hooks_old/ci-monitor-hook.sh` (300s) を参照
    - **解決策**: 
      - 新しい `hooks/ci-monitor-hook.sh` (600s) を使用するよう設定変更が必要
@@ -158,7 +162,7 @@
      - タイムアウト時に有用な情報とアクションガイドを提供
      - プログレス表示とバージョン識別機能
 
-6. **Stop Hook追加**
+7. **Stop Hook追加**
    - **要件**: コミットしていないファイルの自動コミット・プッシュ機能
    - **実装**: `stop-hook.sh` で「STOP」状態に対応
    - **機能**: 未コミットファイル検出 → 自動コミット → プッシュ → "REVIEW_COMPLETED && PUSH_COMPLETED"
