@@ -1,4 +1,4 @@
-# CI Monitoring Timeout Fix (300s → 600s+)
+# CI Monitoring Timeout Fix (300s → 900s+)
 
 ## 🚨 Issue
 Getting "CI monitoring timeout reached after 300s" error.
@@ -51,12 +51,12 @@ CI_MONITOR_CHECK_INTERVAL=15  # Time between checks (default: 15s)
 ```
 
 ## 📋 Expected Output After Fix
-```
+```bash
 [ci-monitor-hook] Starting CI monitoring for session: xxx (v2.0-enhanced-timeout)
-[ci-monitor-hook] Configuration: timeout=600s, check_interval=15s
+[ci-monitor-hook] Configuration: timeout=900s, check_interval=15s
 ```
 
 ## 🔗 Related Files
-- `hooks/ci-monitor-hook.sh` - New version with 600s timeout
+- `hooks/ci-monitor-hook.sh` - New version with 900s timeout
 - `hooks_old/ci-monitor-hook.sh` - Old version with 300s timeout  
 - `verify-hook-config.sh` - Diagnostic script
