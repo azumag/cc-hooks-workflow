@@ -59,8 +59,14 @@ teardown() {
     run bash -c "echo 'invalid json' | ./hooks/initial-hook.sh"
     [ "$status" -eq 1 ]
     
-    # Should still return valid JSON even for invalid input
+    # Should return valid JSON with block decision
     echo "$output" | jq . >/dev/null
+    
+    decision=$(echo "$output" | jq -r '.decision')
+    [ "$decision" = "block" ]
+    
+    reason=$(echo "$output" | jq -r '.reason')
+    [[ "$reason" =~ "Invalid JSON input" ]]
 }
 
 @test "handles empty JSON input" {
