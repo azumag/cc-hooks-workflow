@@ -2,6 +2,9 @@
 # Tests for stop-hook.sh (STOP state handler)
 
 setup() {
+    # Save original directory
+    export ORIGINAL_DIR="$PWD"
+    
     # Create test fixtures
     export TEST_WORK_SUMMARY_FILE="$(mktemp)"
     echo "Test work summary content" > "$TEST_WORK_SUMMARY_FILE"
@@ -29,13 +32,13 @@ teardown() {
 }
 
 @test "stop-hook.sh exists and is executable" {
-    [ -f "$OLDPWD/hooks/stop-hook.sh" ]
-    [ -x "$OLDPWD/hooks/stop-hook.sh" ]
+    [ -f "$ORIGINAL_DIR/hooks/stop-hook.sh" ]
+    [ -x "$ORIGINAL_DIR/hooks/stop-hook.sh" ]
 }
 
 @test "accepts valid JSON input and returns JSON output" {
     cd "$TEST_GIT_DIR"
-    run bash -c "echo '$VALID_JSON_INPUT' | $OLDPWD/hooks/stop-hook.sh"
+    run bash -c "echo '$VALID_JSON_INPUT' | $ORIGINAL_DIR/hooks/stop-hook.sh"
     [ "$status" -eq 0 ]
     
     # Verify JSON output
@@ -53,7 +56,7 @@ teardown() {
     echo "new content" > new_file.txt
     echo "modified content" > initial.txt
     
-    run bash -c "echo '$VALID_JSON_INPUT' | $OLDPWD/hooks/stop-hook.sh"
+    run bash -c "echo '$VALID_JSON_INPUT' | $ORIGINAL_DIR/hooks/stop-hook.sh"
     [ "$status" -eq 0 ]
     
     # Verify files were committed
@@ -69,7 +72,7 @@ teardown() {
     cd "$TEST_GIT_DIR"
     
     # No uncommitted files
-    run bash -c "echo '$VALID_JSON_INPUT' | $OLDPWD/hooks/stop-hook.sh"
+    run bash -c "echo '$VALID_JSON_INPUT' | $ORIGINAL_DIR/hooks/stop-hook.sh"
     [ "$status" -eq 0 ]
     
     # Check decision is approve
@@ -91,7 +94,7 @@ teardown() {
     git config user.name ""
     git config user.email ""
     
-    run bash -c "echo '$VALID_JSON_INPUT' | $OLDPWD/hooks/stop-hook.sh"
+    run bash -c "echo '$VALID_JSON_INPUT' | $ORIGINAL_DIR/hooks/stop-hook.sh"
     [ "$status" -eq 1 ]
     
     # Should return valid JSON with block decision
@@ -107,7 +110,7 @@ teardown() {
 @test "handles invalid JSON input" {
     cd "$TEST_GIT_DIR"
     
-    run bash -c "echo 'invalid json' | $OLDPWD/hooks/stop-hook.sh"
+    run bash -c "echo 'invalid json' | $ORIGINAL_DIR/hooks/stop-hook.sh"
     [ "$status" -eq 1 ]
     
     # Should return valid JSON with block decision
@@ -123,7 +126,7 @@ teardown() {
 @test "handles empty JSON input" {
     cd "$TEST_GIT_DIR"
     
-    run bash -c "echo '$EMPTY_JSON_INPUT' | $OLDPWD/hooks/stop-hook.sh"
+    run bash -c "echo '$EMPTY_JSON_INPUT' | $ORIGINAL_DIR/hooks/stop-hook.sh"
     [ "$status" -eq 1 ]
     
     # Should return valid JSON with block decision
@@ -142,7 +145,7 @@ teardown() {
     local non_existent_file="/tmp/non_existent_$(date +%s).txt"
     local invalid_input='{"work_summary_file_path": "'$non_existent_file'"}'
     
-    run bash -c "echo '$invalid_input' | $OLDPWD/hooks/stop-hook.sh"
+    run bash -c "echo '$invalid_input' | $ORIGINAL_DIR/hooks/stop-hook.sh"
     [ "$status" -eq 1 ]
     
     # Should still return valid JSON
@@ -172,7 +175,7 @@ teardown() {
     echo "new feature" > feature.txt
     echo "bug fix" > bugfix.txt
     
-    run bash -c "echo '$VALID_JSON_INPUT' | $OLDPWD/hooks/stop-hook.sh"
+    run bash -c "echo '$VALID_JSON_INPUT' | $ORIGINAL_DIR/hooks/stop-hook.sh"
     [ "$status" -eq 0 ]
     
     # Check the commit message
