@@ -128,9 +128,9 @@ save_work_summary() {
     temp_file=$(mktemp /tmp/work_summary_XXXXXX.txt)
     
     if [ ! -f "$transcript_path" ]; then
-        echo "トランスクリプトファイルが見つかりません" > "$temp_file"
-        echo "$temp_file"
-        return 0
+        log_error "トランスクリプトファイルが見つかりません: $transcript_path"
+        rm -f "$temp_file"
+        return 1
     fi
     
     # 最新のアシスタントメッセージの全内容を取得
@@ -138,9 +138,22 @@ save_work_summary() {
     last_text_uuid=$(jq -r 'select(.type == "assistant" and (.message.content[]? | select(.type == "text"))) | .uuid' < "$transcript_path" | tail -1)
     
     if [ -n "$last_text_uuid" ]; then
-        jq -r --arg uuid "$last_text_uuid" 'select(.type == "assistant" and .uuid == $uuid) | .message.content[] | select(.type == "text") | .text' < "$transcript_path" > "$temp_file"
+        if ! jq -r --arg uuid "$last_text_uuid" 'select(.type == "assistant" and .uuid == $uuid) | .message.content[] | select(.type == "text") | .text' < "$transcript_path" > "$temp_file"; then
+            log_error "アシスタントメッセージの抽出に失敗しました"
+            rm -f "$temp_file"
+            return 1
+        fi
     else
-        echo "アシスタントメッセージが見つかりません" > "$temp_file"
+        log_error "アシスタントメッセージが見つかりません"
+        rm -f "$temp_file"
+        return 1
+    fi
+    
+    # 作業報告ファイルが空でないことを確認
+    if [ ! -s "$temp_file" ]; then
+        log_error "作業報告が空です"
+        rm -f "$temp_file"
+        return 1
     fi
     
     echo "$temp_file"
@@ -266,7 +279,10 @@ main() {
     
     # 作業報告を一時ファイルに保存
     local work_summary_file
-    work_summary_file=$(save_work_summary "$transcript_path")
+    if ! work_summary_file=$(save_work_summary "$transcript_path"); then
+        log_error "作業報告の保存に失敗しました"
+        exit 1
+    fi
     
     # cleanup function
     cleanup() {
