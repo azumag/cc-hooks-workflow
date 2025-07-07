@@ -11,9 +11,9 @@ set -euo pipefail
 
 # 状態フレーズからhooksスクリプトへのマッピング
 declare -A STATE_MAPPING=(
-    ["REVIEW_COMPLETED"]="review-complete-hook.sh"
-    ["PUSH_COMPLETED"]="push-complete-hook.sh"
-    ["COMMIT_COMPLETED"]="commit-complete-hook.sh"
+    ["R_EVIEW_COMPLETED"]="review-complete-hook.sh"
+    ["P_USH_COMPLETED"]="push-complete-hook.sh"
+    ["C_OMMIT_COMPLETED"]="commit-complete-hook.sh"
     ["TEST_COMPLETED"]="test-complete-hook.sh"
     ["BUILD_COMPLETED"]="build-complete-hook.sh"
     ["IMPLEMENTATION_COMPLETED"]="implementation-complete-hook.sh"
