@@ -1,0 +1,2 @@
+{"type":"user","message":{"content":[{"type":"text","text":"Test CI monitoring"}]},"timestamp":"2024-01-01T00:00:00Z","uuid":"user-uuid-1"}
+{"type":"assistant","message":{"content":[{"type":"text","text":"REVIEW_COMPLETED && PUSH_COMPLETED - triggering CI monitoring"}]},"timestamp":"2024-01-01T00:01:00Z","uuid":"assistant-uuid-1"}
