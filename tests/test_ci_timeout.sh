@@ -8,49 +8,74 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 CI_HOOK="$PROJECT_DIR/hooks/ci-monitor-hook.sh"
 
-# Test with very short timeout
-export CI_MONITOR_TIMEOUT=2
-export CI_MONITOR_INITIAL_DELAY=1
-export CI_MONITOR_CHECK_INTERVAL=1
-
-echo "Testing CI monitor timeout functionality..."
-echo "Setting very short timeout: CI_MONITOR_TIMEOUT=$CI_MONITOR_TIMEOUT"
-
-# Create test input
-TEST_INPUT=$(cat <<EOF
-{
-  "session_id": "test-ci-timeout",
-  "transcript_path": "$SCRIPT_DIR/test-data/test-session.jsonl",
-  "work_summary_file_path": "/tmp/test-work-summary"
-}
-EOF
+# Test different timeout scenarios
+test_scenarios=(
+    "2:1:1:short_timeout"
+    "900:10:15:default_timeout"
 )
 
-echo "Test input prepared"
+passed_tests=0
+total_tests=0
 
-# Test the CI monitor hook (this should timeout quickly if there are any CI workflows)
-echo "Running CI monitor hook with short timeout..."
-RESULT=$(echo "$TEST_INPUT" | "$CI_HOOK" 2>/dev/null || echo '{"decision":"error","reason":"Hook failed"}')
+for scenario in "${test_scenarios[@]}"; do
+    IFS=':' read -r timeout delay interval test_name <<< "$scenario"
+    
+    echo "🧪 Testing: $test_name (timeout=${timeout}s)"
+    
+    # Set test environment
+    export CI_MONITOR_TIMEOUT="$timeout"
+    export CI_MONITOR_INITIAL_DELAY="$delay"
+    export CI_MONITOR_CHECK_INTERVAL="$interval"
+    
+    # Create test input
+    TEST_INPUT=$(cat <<EOF
+{
+  "session_id": "test-$test_name",
+  "transcript_path": "$SCRIPT_DIR/test-data/test-session.jsonl",
+  "work_summary_file_path": "/tmp/test-work-summary-$test_name"
+}
+EOF
+    )
+    
+    # Run test with timeout to prevent hanging
+    timeout 10s bash -c "echo '$TEST_INPUT' | '$CI_HOOK' 2>&1" > "/tmp/test-result-$test_name.log" || true
+    
+    # Analyze results
+    if [ -f "/tmp/test-result-$test_name.log" ]; then
+        log_content=$(cat "/tmp/test-result-$test_name.log")
+        
+        # Check for expected timeout configuration
+        if echo "$log_content" | grep -q "timeout=${timeout}s"; then
+            echo "   ✓ Timeout configuration correct: ${timeout}s"
+            ((passed_tests++))
+        else
+            echo "   ✗ Timeout configuration incorrect"
+        fi
+        
+        # Check for version identification
+        if echo "$log_content" | grep -q "v2.0-enhanced-timeout"; then
+            echo "   ✓ Version identification present"
+        else
+            echo "   ? Version identification missing"
+        fi
+        
+        # Clean up
+        rm -f "/tmp/test-result-$test_name.log"
+    else
+        echo "   ✗ Test failed to produce output"
+    fi
+    
+    ((total_tests++))
+    echo ""
+done
 
-echo "CI monitor result:"
-echo "$RESULT"
+# Test result summary
+echo "📊 Test Summary: $passed_tests/$total_tests tests passed"
 
-# Parse the result
-DECISION=$(echo "$RESULT" | jq -r '.decision // "unknown"')
-REASON=$(echo "$RESULT" | jq -r '.reason // "No reason"')
-
-echo ""
-echo "Decision: $DECISION"
-echo "Reason preview: ${REASON:0:100}..."
-
-# Check if it handled timeout appropriately
-if [[ "$REASON" =~ "timeout" ]] || [[ "$REASON" =~ "Timeout" ]]; then
-    echo "✓ Timeout handling test PASSED - detected timeout scenario"
-elif [[ "$REASON" =~ "No CI workflows" ]] || [[ "$REASON" =~ "not found" ]]; then
-    echo "✓ Test PASSED - no CI workflows to monitor (expected for this test repo)"
+if [ "$passed_tests" -eq "$total_tests" ]; then
+    echo "✅ All CI timeout tests PASSED"
+    exit 0
 else
-    echo "? Test result unclear - may have passed quickly or failed differently"
+    echo "❌ Some tests FAILED"
+    exit 1
 fi
-
-echo ""
-echo "CI timeout test completed"

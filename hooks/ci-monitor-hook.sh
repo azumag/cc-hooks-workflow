@@ -8,7 +8,7 @@ set -euo pipefail
 source "$(dirname "$0")/shared-utils.sh"
 
 # Configuration - can be overridden by environment variables
-readonly MAX_WAIT_TIME="${CI_MONITOR_TIMEOUT:-600}"  # Default 10 minutes (increased from 300s)
+readonly MAX_WAIT_TIME="${CI_MONITOR_TIMEOUT:-900}"  # Default 15 minutes (increased from 300s)
 readonly INITIAL_DELAY="${CI_MONITOR_INITIAL_DELAY:-10}"
 readonly MAX_DELAY="${CI_MONITOR_MAX_DELAY:-30}"
 readonly CHECK_INTERVAL="${CI_MONITOR_CHECK_INTERVAL:-15}"

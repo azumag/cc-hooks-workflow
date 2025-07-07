@@ -15,56 +15,20 @@ echo "   ✅ CI_MONITOR_TIMEOUT=900 (15 minutes)"
 echo "   ✅ Add to your shell profile: echo 'export CI_MONITOR_TIMEOUT=900' >> ~/.bashrc"
 echo
 
-# Solution 2: Find and replace any hooks with 300s timeout
-echo "2️⃣ Searching for hooks with 300s timeout..."
-potential_hooks=(
-    "$HOME/.claude-code/hooks/ci-monitor-hook.sh"
-    "$HOME/.config/claude-code/hooks/ci-monitor-hook.sh"
-    "/usr/local/bin/ci-monitor-hook.sh"
-    "./ci-monitor-hook.sh"
-)
-
-for hook_path in "${potential_hooks[@]}"; do
-    if [ -f "$hook_path" ]; then
-        if grep -q "MAX_WAIT_TIME=300" "$hook_path" 2>/dev/null; then
-            echo "   🔍 Found 300s timeout in: $hook_path"
-            echo "   🔧 Backing up and replacing..."
-            cp "$hook_path" "${hook_path}.backup"
-            cp hooks/ci-monitor-hook.sh "$hook_path"
-            echo "   ✅ Updated: $hook_path"
-        else
-            echo "   ✅ Already up to date: $hook_path"
-        fi
-    fi
-done
-
-# Solution 3: Create a global override script
-echo
-echo "3️⃣ Creating global CI monitor wrapper..."
-cat > /tmp/ci-monitor-override.sh << 'EOF'
-#!/bin/bash
-# Global CI Monitor with forced 900s timeout
-export CI_MONITOR_TIMEOUT=900
-export CI_MONITOR_CHECK_INTERVAL=30
-
-# Find and execute the actual hook
-if [ -f "hooks/ci-monitor-hook.sh" ]; then
-    hooks/ci-monitor-hook.sh "$@"
-elif [ -f "hooks_old/ci-monitor-hook.sh" ]; then
-    hooks_old/ci-monitor-hook.sh "$@"
-else
-    echo '{"decision":"approve","reason":"CI monitor hook not found, skipping monitoring"}' 
-fi
-EOF
-
-chmod +x /tmp/ci-monitor-override.sh
-echo "   ✅ Created: /tmp/ci-monitor-override.sh (15-minute timeout guaranteed)"
+# Solution 2: Check Claude Code hook configuration
+echo "2️⃣ Checking Claude Code hook paths..."
+echo "   💡 If CI timeout persists, update your Claude Code configuration to use:"
+echo "      $(pwd)/hooks/ci-monitor-hook.sh"
+echo "   📋 Common Claude Code config locations:"
+echo "      - ~/.claude-code/settings.json"
+echo "      - ~/.config/claude-code/settings.json"
+echo "      - ./claude-code-settings.json"
 
 echo
-echo "🎯 INSTRUCTIONS:"
-echo "1. Environment variable is set for this session"
-echo "2. Add 'export CI_MONITOR_TIMEOUT=900' to ~/.bashrc or ~/.zshrc"
-echo "3. If Claude Code still uses 300s, point it to: /tmp/ci-monitor-override.sh"
+echo "🎯 SIMPLE SOLUTION:"
+echo "1. Environment variable CI_MONITOR_TIMEOUT=900 is now set (15 minutes)"
+echo "2. For permanent fix: ./setup-ci-timeout.sh"
+echo "3. If issue persists: Update Claude Code hooks path to $(pwd)/hooks/"
 echo
 echo "⚡ VERIFICATION:"
 echo "   Run: echo '{\"session_id\":\"test\"}' | hooks/ci-monitor-hook.sh 2>&1 | head -2"
@@ -73,4 +37,4 @@ echo
 
 # Test current hook
 echo "🧪 TESTING CURRENT HOOK:"
-echo '{"session_id":"test","transcript_path":"tests/test-data/test-ci-monitor.jsonl"}' | hooks/ci-monitor-hook.sh 2>&1 | head -3 || echo "Hook test failed"
+echo '{"session_id":"test","transcript_path":"tests/test-data/test-session.jsonl"}' | hooks/ci-monitor-hook.sh 2>&1 | head -3 || echo "Hook test failed"

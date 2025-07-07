@@ -5,27 +5,32 @@ Getting "CI monitoring timeout reached after 300s" error.
 
 ## 🔍 Root Cause
 Your Claude Code configuration is pointing to the old hook with 300s timeout:
-- ❌ `hooks_old/ci-monitor-hook.sh` (300s timeout)
-- ✅ `hooks/ci-monitor-hook.sh` (600s timeout, configurable)
+- ❌ Old hooks with 300s timeout  
+- ✅ `hooks/ci-monitor-hook.sh` (900s timeout, configurable)
 
-## 🔧 Quick Solutions
+## 🔧 Simple Solutions (In Order of Preference)
 
-### Option 1: Environment Variable (Immediate Fix)
+### ✅ Option 1: Environment Variable (Recommended)
 ```bash
-# Add to your shell profile (~/.bashrc, ~/.zshrc, etc.)
-export CI_MONITOR_TIMEOUT=900        # 15 minutes
-export CI_MONITOR_CHECK_INTERVAL=30  # Check every 30 seconds
+# Immediate fix - run once:
+export CI_MONITOR_TIMEOUT=900
+
+# Permanent fix - add to shell profile:
+echo 'export CI_MONITOR_TIMEOUT=900' >> ~/.bashrc  # or ~/.zshrc
 ```
 
-### Option 2: Update Claude Code Hooks Path
-Update your Claude Code configuration to use:
+### 🔧 Option 2: Update Claude Code Configuration 
+Update your Claude Code hooks path to:
 ```
-/Users/azumag/work/cc-hooks-workflow/hooks/ci-monitor-hook.sh
+/path/to/your/project/hooks/ci-monitor-hook.sh
 ```
+Check these common config locations:
+- `~/.claude-code/settings.json`
+- `~/.config/claude-code/settings.json`
 
-### Option 3: Replace Old Hook
+### 🆘 Option 3: Run Setup Script
 ```bash
-cp hooks/ci-monitor-hook.sh hooks_old/ci-monitor-hook.sh
+./setup-ci-timeout.sh  # Automatically configures environment variables
 ```
 
 ## 🧪 Verify Fix
@@ -40,7 +45,7 @@ echo '{"session_id":"test","transcript_path":"tests/test-data/test-session.jsonl
 ## ⚙️ Configuration Options
 ```bash
 # Available environment variables:
-CI_MONITOR_TIMEOUT=600        # Total timeout (default: 10 minutes)
+CI_MONITOR_TIMEOUT=900        # Total timeout (default: 15 minutes)
 CI_MONITOR_INITIAL_DELAY=10   # Wait before first check (default: 10s)
 CI_MONITOR_CHECK_INTERVAL=15  # Time between checks (default: 15s)
 ```
