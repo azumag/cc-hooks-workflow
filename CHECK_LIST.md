@@ -41,43 +41,43 @@
   - [x] 不正な JSON のエラーハンドリング
 
 ## hooks スクリプト ✅
-- [x] 基本的な hooks スクリプトの作成
-  - [x] 実行権限の設定
-  - [x] 引数処理 (JSON input with work_summary_file_path)
-  - [x] JSON 出力フォーマット準備
-- [x] サンプル hooks の実装
-  - [x] レビュー用 hooks (review-complete-hook.sh)
-  - [x] CI監視用 hooks (ci-monitor-hook.sh)
-  - [x] エラーハンドリング hooks (shared-utils.sh)
+- [ ] 基本的な hooks スクリプトの作成
+  - [ ] 実行権限の設定
+  - [ ] 引数処理 (JSON input with work_summary_file_path)
+  - [ ] JSON 出力フォーマット準備
+- [ ] サンプル hooks の実装
+  - [ ] レビュー用 hooks (review-complete-hook.sh)
+  - [ ] CI監視用 hooks (ci-monitor-hook.sh)
+  - [ ] エラーハンドリング hooks (shared-utils.sh)
 
 ## エラーハンドリング
-- [ ] 一般的なエラー処理
-  - [ ] 依存関係不足時のエラー
-  - [ ] ファイルアクセスエラー
-  - [ ] 権限エラー
-  - [ ] 不正な JSON 形式エラー
-- [ ] ロギング機能
-  - [ ] エラーログの出力
-  - [ ] デバッグ情報の出力
+- [x] 一般的なエラー処理
+  - [x] 依存関係不足時のエラー
+  - [x] ファイルアクセスエラー
+  - [x] 権限エラー
+  - [x] 不正な JSON 形式エラー
+- [x] ロギング機能
+  - [x] エラーログの出力
+  - [x] デバッグ情報の出力
 
 ## テスト実装
-- [ ] テスト環境の構築
-  - [ ] bats のインストール/設定
-  - [ ] モックファイルの作成
-  - [ ] テストデータの準備
-- [ ] 単体テスト
-  - [ ] 状態フレーズ抽出のテスト
-  - [ ] 状態マッピングのテスト
-  - [ ] JSON パースのテスト
-  - [ ] ファイル操作のテスト
-- [ ] 統合テスト
-  - [ ] workflow 全体のテスト
-  - [ ] hooks 連携のテスト
-  - [ ] エラーシナリオのテスト
-- [ ] テストスクリプトの作成
-  - [ ] `tests/test_workflow.bats`
-  - [ ] `tests/test_hooks.bats`
-  - [ ] `tests/test_integration.bats`
+- [x] テスト環境の構築
+  - [x] 基本テストスクリプトの作成
+  - [x] モックファイルの作成
+  - [x] テストデータの準備
+- [x] 単体テスト
+  - [x] 状態フレーズ抽出のテスト
+  - [x] 状態マッピングのテスト
+  - [x] JSON パースのテスト
+  - [x] ファイル操作のテスト
+- [x] 統合テスト
+  - [x] workflow 全体のテスト
+  - [x] hooks 連携のテスト
+  - [x] エラーシナリオのテスト
+- [x] テストスクリプトの作成
+  - [x] `tests/test_workflow.sh`
+  - [ ] `tests/test_hooks.bats` (bats使用)
+  - [ ] `tests/test_integration.bats` (bats使用)
 
 ## CI/CD 設定
 - [ ] GitHub Actions 設定
