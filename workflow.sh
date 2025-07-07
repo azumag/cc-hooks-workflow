@@ -80,9 +80,10 @@ find_latest_transcript() {
         return 1
     fi
     
-    # 最新の.jsonlファイルを探す
+    # 最新の.jsonlファイルを探す (シンプルなls -tを使用)
     local latest_file
-    latest_file=$(find "$transcript_dir" -name "*.jsonl" -type f -exec stat -f "%m %N" {} \; 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
+    latest_file=$(find "$transcript_dir" -name "*.jsonl" -type f -print0 | 
+                  xargs -0 ls -t 2>/dev/null | head -1)
     
     if [ -n "$latest_file" ]; then
         echo "$latest_file"
@@ -100,17 +101,18 @@ extract_state_phrase() {
         return 1
     fi
     
-    # 最新のアシスタントメッセージの最後の行を取得
+    # アシスタントメッセージのテキストを取得 (簡素化)
     local last_message
-    last_message=$(jq -r 'select(.type == "assistant" and (.message.content[]? | select(.type == "text"))) | .message.content[] | select(.type == "text") | .text' < "$transcript_path" | tail -n 1)
+    last_message=$(jq -r '.type == "assistant" and has("message") and (.message.content[] | select(.type == "text")) | .message.content[] | select(.type == "text") | .text' < "$transcript_path" | tail -n 1)
     
     if [ -z "$last_message" ]; then
-        return 1
+        echo "NONE"
+        return 0
     fi
     
     # 状態フレーズをチェック
     for state in "${!STATE_MAPPING[@]}"; do
-        if echo "$last_message" | grep -q "^$state$"; then
+        if [ "$last_message" = "$state" ]; then
             echo "$state"
             return 0
         fi
@@ -133,18 +135,9 @@ save_work_summary() {
         return 1
     fi
     
-    # 最新のアシスタントメッセージの全内容を取得
-    local last_text_uuid
-    last_text_uuid=$(jq -r 'select(.type == "assistant" and (.message.content[]? | select(.type == "text"))) | .uuid' < "$transcript_path" | tail -1)
-    
-    if [ -n "$last_text_uuid" ]; then
-        if ! jq -r --arg uuid "$last_text_uuid" 'select(.type == "assistant" and .uuid == $uuid) | .message.content[] | select(.type == "text") | .text' < "$transcript_path" > "$temp_file"; then
-            log_error "アシスタントメッセージの抽出に失敗しました"
-            rm -f "$temp_file"
-            return 1
-        fi
-    else
-        log_error "アシスタントメッセージが見つかりません"
+    # アシスタントメッセージのテキストを直接取得 (簡素化)
+    if ! jq -r '.type == "assistant" and has("message") and (.message.content[] | select(.type == "text")) | .message.content[] | select(.type == "text") | .text' < "$transcript_path" > "$temp_file"; then
+        log_error "アシスタントメッセージの抽出に失敗しました"
         rm -f "$temp_file"
         return 1
     fi
@@ -184,30 +177,19 @@ execute_hook() {
     log_info "Hookスクリプトを実行中: $hook_script"
     
     local hook_output
-    local hook_exit_code
-    local temp_stderr_file
     
-    # stderrを一時ファイルにリダイレクトし、stdoutのみをキャプチャ
-    temp_stderr_file=$(mktemp /tmp/hook_stderr_XXXXXX.log)
-    hook_output=$(echo "$json_input" | "$hook_path" 2>"$temp_stderr_file")
-    hook_exit_code=$?
+    # シンプルなstdout/stderr分離
+    hook_output=$(echo "$json_input" | "$hook_path" 2>/dev/null)
     
-    local hook_stderr
-    hook_stderr=$(cat "$temp_stderr_file")
-    rm -f "$temp_stderr_file"
-    
-    if [ -n "$hook_stderr" ]; then
-        log_warning "HookスクリプトからのSTDERR出力: $hook_script"
-        echo "$hook_stderr" >&2
+    if [ -z "$hook_output" ]; then
+        log_error "Hookスクリプトから出力がありません: $hook_script"
+        return 1
     fi
     
     # JSON出力の検証
     if ! echo "$hook_output" | jq . >/dev/null 2>&1; then
         log_error "Hookスクリプトから無効なJSON出力: $hook_script"
         log_error "出力: $hook_output"
-        if [ -n "$hook_stderr" ]; then
-            log_error "STDERR: $hook_stderr"
-        fi
         return 1
     fi
     
