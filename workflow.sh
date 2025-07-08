@@ -16,24 +16,14 @@ work_summary_file=""
 # JSON設定ファイルのパス
 CONFIG_FILE=".claude/workflow.json"
 
-# デフォルトのJSON設定（フォールバック用）
-DEFAULT_CONFIG='{
-  "hooks": [
-    {"launch": null, "prompt": "npm test を実行せよ。 テストがエラーなく完了したら TEST_COMPLETED とだけ表示せよ。"},
-    {"launch": "TEST_COMPLETED", "path": "self-review.sh", "next": "SELF_REVIEWED", "handling": "pass"},
-    {"launch": "SELF_REVIEWED", "path": "commit.sh", "next": "STOP", "handling": "pass"},
-    {"launch": "STOP", "path": "stop.sh", "next": null, "handling": "pass"}
-  ]
-}'
-
 # JSON設定を読み込む関数
 load_config() {
     if [ -f "$CONFIG_FILE" ]; then
         cat "$CONFIG_FILE"
     else
         log_warning "設定ファイルが見つかりません: $CONFIG_FILE"
-        log_info "デフォルト設定を使用します"
-        echo "$DEFAULT_CONFIG"
+        echo "no config found: $CONFIG_FILE" >&2
+        exit 1
     fi
 }
 
