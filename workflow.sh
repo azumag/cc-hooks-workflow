@@ -29,14 +29,7 @@ get_hook_script() {
 # 依存関係一覧
 REQUIRED_DEPS=("jq" "grep" "tail" "mktemp")
 
-# shared-utils.shの関数を読み込み
-SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SOURCE_DIR/hooks_old/shared-utils.sh" ]; then
-    source "$SOURCE_DIR/hooks_old/shared-utils.sh"
-else
-    log_error "shared-utils.shが見つかりません: $SOURCE_DIR/hooks_old/shared-utils.sh"
-    exit 1
-fi
+# 共通のユーティリティ関数を直接実装（shared-utils.shに依存しない）
 
 # ====================
 # ユーティリティ関数
@@ -73,24 +66,38 @@ check_dependencies() {
 }
 
 
-# shared-utils.shの関数を使って最新のトランスクリプトファイルを探す
+# 最新のトランスクリプトファイルを探す（self-contained implementation）
 find_latest_transcript() {
     local transcript_dir="$HOME/.claude/projects"
     
-    # shared-utils.shの関数を使用してより堅牢な検索を実行
+    # ディレクトリが存在するかチェック
+    if [ ! -d "$transcript_dir" ]; then
+        log_error "Claude transcriptsディレクトリが見つかりません: $transcript_dir"
+        return 1
+    fi
+    
+    # .jsonlファイルが存在するかチェック
+    if ! find "$transcript_dir" -name "*.jsonl" -type f -print -quit | grep -q .; then
+        log_error "Claude transcriptsディレクトリに.jsonlファイルが見つかりません: $transcript_dir"
+        return 2
+    fi
+    
+    # 最新のファイルを取得（クロスプラットフォーム対応）
     local latest_file
-    if latest_file=$(find_latest_transcript_in_dir "$transcript_dir"); then
+    if stat -f "%m %N" /dev/null >/dev/null 2>&1; then
+        # macOS/BSD stat
+        latest_file=$(find "$transcript_dir" -name "*.jsonl" -type f -exec stat -f "%m %N" {} \; 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+    else
+        # GNU stat (Linux)
+        latest_file=$(find "$transcript_dir" -name "*.jsonl" -type f -exec stat -c "%Y %n" {} \; 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+    fi
+    
+    if [ -n "$latest_file" ] && [ -f "$latest_file" ]; then
         echo "$latest_file"
         return 0
     else
-        local exit_code=$?
-        case $exit_code in
-            1) log_error "Claude transcriptsディレクトリが見つかりません: $transcript_dir" ;;
-            2) log_error "Claude transcriptsディレクトリに.jsonlファイルが見つかりません: $transcript_dir" ;;
-            3) log_error "Claude transcriptsファイルへのアクセス中にエラーが発生しました: $transcript_dir" ;;
-            *) log_error "Claude transcriptsファイルの検索中に予期しないエラーが発生しました: $transcript_dir" ;;
-        esac
-        return $exit_code
+        log_error "Claude transcriptsファイルへのアクセス中にエラーが発生しました: $transcript_dir"
+        return 3
     fi
 }
 
