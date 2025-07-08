@@ -10,14 +10,14 @@ set -euo pipefail
 # ====================
 
 # 状態フレーズからhooksスクリプトへのマッピング
-# Using case statement instead of associative array for portability
+# hookスクリプト名と次の状態フレーズオプションを直接返す
 get_hook_script() {
     local state="$1"
     case "$state" in
-        "NONE") echo "initial-hook.sh" ;;
-        "TEST_COMPLETED") echo "test-complete-hook.sh" ;;
+        "NONE") echo "initial-hook.sh --phrase=TEST_COMPLETED" ;;
+        "TEST_COMPLETED") echo "commit-hook.sh --phrase=COMMIT_COMPLETED" ;;
+        "COMMIT_COMPLETED") echo "push-hook.sh" ;;  # 終了（phraseなし）
         "REVIEW_COMPLETED") echo "review-complete-hook.sh" ;;
-        "COMMIT_COMPLETED") echo "commit-complete-hook.sh" ;;
         "PUSH_COMPLETED") echo "push-complete-hook.sh" ;;
         "BUILD_COMPLETED") echo "build-complete-hook.sh" ;;
         "IMPLEMENTATION_COMPLETED") echo "implementation-complete-hook.sh" ;;
@@ -151,9 +151,12 @@ save_work_summary() {
 
 # hooksスクリプトの実行
 execute_hook() {
-    local hook_script="$1"
+    local hook_command="$1"  # "hook.sh --phrase=XXX" 形式のコマンド
     local work_summary_file="$2"
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
+    # コマンドからスクリプト名を抽出
+    local hook_script="${hook_command%% *}"
     local hook_path="$script_dir/hooks/$hook_script"
     
     # スクリプトの存在確認
@@ -172,12 +175,21 @@ execute_hook() {
     local json_input
     json_input=$(jq -n --arg work_summary_file_path "$work_summary_file" '{work_summary_file_path: $work_summary_file_path}')
     
-    log_info "Hookスクリプトを実行中: $hook_script"
+    log_info "Hookコマンドを実行中: $hook_command"
     
     # hookを実行し、終了コードで判定（標準的なUnix方式）
     # パイプラインの終了コードを確実に取得するため、変数に保存
     local hook_exit_code
-    echo "$json_input" | "$hook_path"
+    # コマンドを安全に実行
+    # hook_commandからオプションを抽出
+    local hook_options="${hook_command#* }"
+    if [ "$hook_options" = "$hook_command" ]; then
+        # オプションがない場合
+        echo "$json_input" | "$hook_path"
+    else
+        # オプションがある場合
+        echo "$json_input" | "$hook_path" $hook_options
+    fi
     hook_exit_code=${PIPESTATUS[1]}
     
     # hookの終了コードを明示的に返す
@@ -221,16 +233,16 @@ main() {
     
     log_info "検出された状態: $state_phrase"
     
-    # 状態に対応するhooksスクリプトを決定
-    local hook_script
-    hook_script=$(get_hook_script "$state_phrase")
+    # 状態に対応するhooksコマンドを決定
+    local hook_command
+    hook_command=$(get_hook_script "$state_phrase")
     
-    if [ -z "$hook_script" ]; then
+    if [ -z "$hook_command" ]; then
         log_error "未知の状態フレーズ: $state_phrase"
         exit 1
     fi
     
-    log_info "実行するhook: $hook_script"
+    log_info "実行するhookコマンド: $hook_command"
     
     # 作業報告を一時ファイルに保存
     local work_summary_file
@@ -248,7 +260,7 @@ main() {
     trap cleanup EXIT
     
     # hooksスクリプトを実行
-    if execute_hook "$hook_script" "$work_summary_file"; then
+    if execute_hook "$hook_command" "$work_summary_file"; then
         log_info "Workflow完了"
         exit 0
     else

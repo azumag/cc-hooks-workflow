@@ -1,6 +1,5 @@
 #!/bin/bash
-# initial-hook.sh - NONE状態のhooks (最初の実行時)
-# test.shを呼び出して、テスト実行を依頼する
+# commit-hook.sh - TEST_COMPLETED後のコミット処理フック
 
 # --phraseオプションの処理
 NEXT_PHRASE=""
@@ -27,6 +26,10 @@ if ! command -v jq >/dev/null 2>&1; then
     error_exit "Missing required dependency: jq."
 fi
 
+if ! command -v git >/dev/null 2>&1; then
+    error_exit "Missing required dependency: git."
+fi
+
 # JSON入力を読み取り
 json_input=$(cat)
 
@@ -50,9 +53,9 @@ fi
 
 # Claudeに指示を送る
 if [ -n "$NEXT_PHRASE" ]; then
-    echo "test.shを実行してください。テストが完了したら、${NEXT_PHRASE}と発言してください。" >&2
+    echo "変更をコミットしてください。コミットが完了したら、${NEXT_PHRASE}と発言してください。" >&2
 else
-    echo "test.shを実行してください。" >&2
+    echo "変更をコミットしてください。" >&2
 fi
 
 # 終了コード1で失敗を示す（Claudeに行動を促すため）
