@@ -9,6 +9,11 @@ set -euo pipefail
 # 設定とマッピング
 # ====================
 
+# 作業報告ファイルパス
+claude_tmp_dir=".claude/tmp"
+work_summary_file="$claude_tmp_dir/work_summary.txt"
+ 
+
 # 状態フレーズからhooksスクリプトへのマッピング
 # hookスクリプト名と次の状態フレーズオプションを直接返す
 get_hook_script() {
@@ -106,34 +111,33 @@ extract_state_phrase() {
     echo "$last_message"
 }
 
-# 作業報告を一時ファイルに保存
+# 作業報告を固定パスの一時ファイルに保存
 save_work_summary() {
     local transcript_path="$1"
-    local temp_file
-    temp_file=$(mktemp /tmp/work_summary_XXXXXX.txt)
+   
+    # .claude/tmpディレクトリを作成
+    mkdir -p "$claude_tmp_dir"
     
     if [ ! -f "$transcript_path" ]; then
         log_error "トランスクリプトファイルが見つかりません: $transcript_path"
-        rm -f "$temp_file"
         return 1
     fi
     
     # アシスタントメッセージのテキストを直接取得 (簡素化)
-    if ! jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' < "$transcript_path" > "$temp_file"; then
+    if ! jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' < "$transcript_path" > "$fixed_file"; then
         log_error "アシスタントメッセージの抽出に失敗しました"
-        rm -f "$temp_file"
         return 1
     fi
     
     # 作業報告ファイルが空でないことを確認
-    if [ ! -s "$temp_file" ]; then
+    if [ ! -s "$work_summary_file" ]; then
         log_error "作業報告が空です"
-        rm -f "$temp_file"
         return 1
     fi
-    
-    echo "$temp_file"
+
+    echo "$work_summary_file"
 }
+
 
 # hooksスクリプトの実行
 execute_hook() {
@@ -222,21 +226,20 @@ main() {
     
     log_info "実行するhookコマンド: $hook_command"
     
-    # 作業報告を一時ファイルに保存
-    local work_summary_file
-    if ! work_summary_file=$(save_work_summary "$transcript_path"); then
-        log_error "作業報告の保存に失敗しました"
-        exit 1
-    fi
+    # 状態フレーズが指定されていない場合（デフォルトケース）を判定
+    # get_hook_scriptのデフォルトケース（test.sh）と一致するかで判定
+    local default_hook_command
+    default_hook_command=$(get_hook_script "")
     
-    # cleanup function
-    cleanup() {
-        if [ -f "$work_summary_file" ]; then
-            rm -f "$work_summary_file"
+    if [ "$hook_command" = "$default_hook_command" ]; then
+        # 状態フレーズが指定されていない場合のみ作業報告を保存
+        if ! work_summary_file=$(save_work_summary "$transcript_path"); then
+            log_error "作業報告の保存に失敗しました"
+            exit 1
         fi
-    }
-    trap cleanup EXIT
-    
+        log_info "新しい作業報告ファイルを作成: $work_summary_file"
+    fi
+   
     # hooksスクリプトを実行
     if execute_hook "$hook_command" "$work_summary_file"; then
         log_info "Workflow完了"
