@@ -219,9 +219,9 @@ execute_path_hook() {
     local handling="$4"
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
-    # 相対パスの場合はhooks/ディレクトリを基準にする
+    # 相対パスの場合はスクリプトディレクトリを基準にする
     if [[ ! "$hook_path" = /* ]]; then
-        hook_path="$script_dir/hooks/$hook_path"
+        hook_path="$script_dir/$hook_path"
     fi
     
     # スクリプトの存在確認
