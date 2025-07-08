@@ -13,17 +13,44 @@ set -euo pipefail
 work_summary_tmp_dir=""
 work_summary_file=""
 
+# JSON設定ファイルのパス
+CONFIG_FILE=".claude/workflow.json"
 
-# 状態フレーズからhooksスクリプトへのマッピング
-# hookスクリプト名と次の状態フレーズオプションを直接返す
-get_hook_script() {
+# デフォルトのJSON設定（フォールバック用）
+DEFAULT_CONFIG='{
+  "hooks": [
+    {"launch": null, "prompt": "npm test を実行せよ。 テストがエラーなく完了したら TEST_COMPLETED とだけ表示せよ。"},
+    {"launch": "TEST_COMPLETED", "path": "self-review.sh", "next": "SELF_REVIEWED", "handling": "pass"},
+    {"launch": "SELF_REVIEWED", "path": "commit.sh", "next": "STOP", "handling": "pass"},
+    {"launch": "STOP", "path": "stop.sh", "next": null, "handling": "pass"}
+  ]
+}'
+
+# JSON設定を読み込む関数
+load_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        cat "$CONFIG_FILE"
+    else
+        log_warning "設定ファイルが見つかりません: $CONFIG_FILE"
+        log_info "デフォルト設定を使用します"
+        echo "$DEFAULT_CONFIG"
+    fi
+}
+
+# 状態フレーズからhook設定を取得する関数
+# JSON設定からhook情報を返す（JSON形式）
+get_hook_config() {
     local state="$1"
-    case "$state" in
-        "TEST_COMPLETED") echo "self-review.sh --phrase=SELF_REVIEWED" ;;
-        "SELF_REVIEWED") echo "commit.sh --phrase=STOP" ;;
-        "STOP") echo "stop.sh" ;; # stop.shは実際には何もせずに終了する
-        *) echo "test.sh --phrase=TEST_COMPLETED" ;; # 何も指定されていない状態では起点フックをよぶ
-    esac
+    local config
+    config=$(load_config)
+    
+    # 状態に対応するhook設定を検索
+    # stateがnullまたは空の場合は、launchがnullのエントリを探す
+    if [ -z "$state" ] || [ "$state" = "null" ]; then
+        echo "$config" | jq -r '.hooks[] | select(.launch == null)' 2>/dev/null || echo "{}"
+    else
+        echo "$config" | jq -r --arg state "$state" '.hooks[] | select(.launch == $state)' 2>/dev/null || echo "{}"
+    fi
 }
 
 # 依存関係一覧
@@ -166,15 +193,39 @@ save_work_summary() {
 }
 
 
-# hooksスクリプトの実行
-execute_hook() {
-    local hook_command="$1"  # "hook.sh --phrase=XXX" 形式のコマンド
+# promptタイプのhookを実行（Claude Codeにプロンプトを渡す）
+execute_prompt_hook() {
+    local prompt="$1"
     local work_summary_file="$2"
+    
+    log_info "プロンプトフックを実行中"
+    
+    # $WORK_SUMMARYを作業報告の内容に置換
+    if [[ "$prompt" == *'$WORK_SUMMARY'* ]] && [ -f "$work_summary_file" ]; then
+        local work_summary_content
+        work_summary_content=$(cat "$work_summary_file")
+        prompt="${prompt//\$WORK_SUMMARY/$work_summary_content}"
+    fi
+    
+    # プロンプトを標準出力に出力（Claude Codeに渡される）
+    echo "$prompt"
+    
+    # プロンプトフックは常に成功とみなす
+    return 0
+}
+
+# pathタイプのhookを実行（従来のスクリプト実行）
+execute_path_hook() {
+    local hook_path="$1"
+    local work_summary_file="$2"
+    local next_phrase="$3"
+    local handling="$4"
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
-    # コマンドからスクリプト名を抽出
-    local hook_script="${hook_command%% *}"
-    local hook_path="$script_dir/hooks/$hook_script"
+    # 相対パスの場合はhooks/ディレクトリを基準にする
+    if [[ ! "$hook_path" = /* ]]; then
+        hook_path="$script_dir/hooks/$hook_path"
+    fi
     
     # スクリプトの存在確認
     if [ ! -f "$hook_path" ]; then
@@ -192,25 +243,89 @@ execute_hook() {
     local json_input
     json_input=$(jq -n --arg work_summary_file_path "$work_summary_file" '{work_summary_file_path: $work_summary_file_path}')
     
-    log_info "Hookコマンドを実行中: $hook_command"
+    log_info "Hookスクリプトを実行中: $hook_path"
     
-    # hookを実行し、終了コードで判定（標準的なUnix方式）
-    # パイプラインの終了コードを確実に取得するため、変数に保存
+    # nextパラメータがある場合は--phraseオプションとして渡す
     local hook_exit_code
-    # コマンドを安全に実行
-    # hook_commandからオプションを抽出
-    local hook_options="${hook_command#* }"
-    if [ "$hook_options" = "$hook_command" ]; then
-        # オプションがない場合
-        echo "$json_input" | "$hook_path"
+    if [ -n "$next_phrase" ] && [ "$next_phrase" != "null" ]; then
+        echo "$json_input" | "$hook_path" --phrase="$next_phrase"
     else
-        # オプションがある場合
-        echo "$json_input" | "$hook_path" $hook_options
+        echo "$json_input" | "$hook_path"
     fi
     hook_exit_code=${PIPESTATUS[1]}
     
-    # hookの終了コードを明示的に返す
-    return $hook_exit_code
+    # handlingに応じた処理
+    case "$handling" in
+        "block")
+            # エラーの場合はdecision block JSONを出力してexit 1
+            if [ $hook_exit_code -ne 0 ]; then
+                log_error "Hook実行失敗（block設定）: $hook_path"
+                # decision block JSONをClaudeに通知
+                cat <<EOF
+{
+  "type": "decision_block",
+  "hook": "$hook_path",
+  "exit_code": $hook_exit_code,
+  "message": "Hook execution failed with block handling"
+}
+EOF
+                exit 1
+            fi
+            ;;
+        "raise")
+            # エラーメッセージを標準エラー出力に表示してexit 1
+            if [ $hook_exit_code -ne 0 ]; then
+                log_error "Hook実行失敗（raise設定）: $hook_path"
+                exit 1
+            fi
+            ;;
+        "pass"|*)
+            # エラーでも正常終了（exit 0）
+            if [ $hook_exit_code -ne 0 ]; then
+                log_warning "Hook実行失敗（pass設定）: $hook_path - エラーを無視します"
+            fi
+            ;;
+    esac
+    
+    # nextフレーズの処理
+    if [ -n "$next_phrase" ] && [ "$next_phrase" != "null" ] && [ $hook_exit_code -eq 0 ]; then
+        # hookが成功した場合、nextフレーズを標準出力に出力
+        echo "$next_phrase"
+    fi
+    
+    return 0
+}
+
+# hook設定に基づいてhookを実行
+execute_hook() {
+    local hook_config="$1"
+    local work_summary_file="$2"
+    
+    # hook設定が空の場合は何もしない
+    if [ -z "$hook_config" ] || [ "$hook_config" = "{}" ]; then
+        return 0
+    fi
+    
+    # hook設定からタイプを判定
+    local prompt
+    prompt=$(echo "$hook_config" | jq -r '.prompt // empty')
+    local path
+    path=$(echo "$hook_config" | jq -r '.path // empty')
+    local next
+    next=$(echo "$hook_config" | jq -r '.next // empty')
+    local handling
+    handling=$(echo "$hook_config" | jq -r '.handling // "pass"')
+    
+    if [ -n "$prompt" ]; then
+        # promptタイプのhook
+        execute_prompt_hook "$prompt" "$work_summary_file"
+    elif [ -n "$path" ]; then
+        # pathタイプのhook
+        execute_path_hook "$path" "$work_summary_file" "$next" "$handling"
+    else
+        log_warning "hook設定にpromptもpathも指定されていません"
+        return 0
+    fi
 }
 
 # ====================
@@ -244,24 +359,24 @@ main() {
     
     log_info "検出された状態: $state_phrase"
     
-    # 状態に対応するhooksコマンドを決定
-    local hook_command
-    hook_command=$(get_hook_script "$state_phrase")
+    # 状態に対応するhook設定を取得
+    local hook_config
+    hook_config=$(get_hook_config "$state_phrase")
     
-    if [ -z "$hook_command" ]; then
+    if [ -z "$hook_config" ] || [ "$hook_config" = "{}" ]; then
         # 定義していない状態フレーズの場合は、エラーではない。
         # 純粋にフックを設定していないだけなので、正常終了する。
+        log_info "状態 '$state_phrase' に対応するフックが設定されていません"
         exit 0
     fi
     
-    log_info "実行するhookコマンド: $hook_command"
+    log_info "実行するhook設定: $(echo "$hook_config" | jq -c '.')"
     
-    # 状態フレーズが指定されていない場合（デフォルトケース）を判定
-    # get_hook_scriptのデフォルトケース（test.sh）と一致するかで判定
-    local default_hook_command
-    default_hook_command=$(get_hook_script "")
+    # launchがnullの場合（初回実行）のみ作業報告を保存
+    local launch
+    launch=$(echo "$hook_config" | jq -r '.launch // empty')
     
-    if [ "$hook_command" = "$default_hook_command" ]; then
+    if [ -z "$launch" ] || [ "$launch" = "null" ]; then
         # 状態フレーズが指定されていない場合のみ作業報告を保存
         if ! work_summary_file=$(save_work_summary "$transcript_path"); then
             log_error "作業報告の保存に失敗しました"
@@ -270,8 +385,8 @@ main() {
         log_info "新しい作業報告ファイルを作成: $work_summary_file"
     fi
    
-    # hooksスクリプトを実行
-    if execute_hook "$hook_command" "$work_summary_file"; then
+    # hook設定に基づいてhookを実行
+    if execute_hook "$hook_config" "$work_summary_file"; then
         log_info "Workflow完了"
         exit 0
     else

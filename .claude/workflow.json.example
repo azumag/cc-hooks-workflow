@@ -1,0 +1,209 @@
+{
+  "comment": "シンプルなテスト → レビュー → コミット → 終了フローの例",
+  "hooks": [
+    {
+      "launch": null,
+      "prompt": "npm test を実行せよ。テストがエラーなく完了したら TEST_COMPLETED とだけ表示せよ。"
+    },
+    {
+      "launch": "TEST_COMPLETED",
+      "path": "self-review.sh",
+      "next": "SELF_REVIEWED",
+      "handling": "pass"
+    },
+    {
+      "launch": "SELF_REVIEWED",
+      "path": "commit.sh",
+      "next": "STOP",
+      "handling": "pass"
+    },
+    {
+      "launch": "STOP",
+      "path": "stop.sh",
+      "next": null,
+      "handling": "pass"
+    }
+  ]
+}
+
+{
+  "comment": "CI/CDパイプライン風の複合フローの例",
+  "hooks": [
+    {
+      "launch": null,
+      "prompt": "プロジェクトのビルドを開始します。次のステップを実行してください：\n1. npm run build\n2. 成功したら BUILD_COMPLETED と表示\n3. 失敗したら BUILD_FAILED と表示"
+    },
+    {
+      "launch": "BUILD_COMPLETED",
+      "prompt": "ビルドが完了しました。次にテストを実行してください：\n1. npm test\n2. 成功したら TEST_PASSED と表示\n3. 失敗したら TEST_FAILED と表示"
+    },
+    {
+      "launch": "TEST_PASSED",
+      "path": "quality-check.sh",
+      "next": "QUALITY_CHECKED",
+      "handling": "block"
+    },
+    {
+      "launch": "QUALITY_CHECKED",
+      "path": "deploy.sh",
+      "next": "DEPLOYED",
+      "handling": "raise"
+    },
+    {
+      "launch": "DEPLOYED",
+      "path": "notification.sh",
+      "next": "STOP",
+      "handling": "pass"
+    },
+    {
+      "launch": "BUILD_FAILED",
+      "prompt": "ビルドが失敗しました。エラーを確認して修正してください。修正が完了したら FIXED と表示してください。"
+    },
+    {
+      "launch": "TEST_FAILED",
+      "prompt": "テストが失敗しました。テストエラーを確認して修正してください。修正が完了したら FIXED と表示してください。"
+    },
+    {
+      "launch": "FIXED",
+      "prompt": "修正が完了しました。再度ビルドを開始してください。"
+    },
+    {
+      "launch": "STOP",
+      "path": "stop.sh",
+      "next": null,
+      "handling": "pass"
+    }
+  ]
+}
+
+{
+  "comment": "マルチステップワークフロー（コードレビュー重視）の例",
+  "hooks": [
+    {
+      "launch": null,
+      "prompt": "作業内容を確認します。以下の作業報告を分析してください：\n\n$WORK_SUMMARY\n\n分析完了後、ANALYSIS_COMPLETED と表示してください。"
+    },
+    {
+      "launch": "ANALYSIS_COMPLETED",
+      "prompt": "静的解析を実行してください：\n1. npm run lint\n2. npm run type-check\n3. 問題がなければ STATIC_ANALYSIS_PASSED と表示\n4. 問題があれば STATIC_ANALYSIS_FAILED と表示"
+    },
+    {
+      "launch": "STATIC_ANALYSIS_PASSED",
+      "prompt": "単体テストを実行してください：\n1. npm run test:unit\n2. 成功したら UNIT_TEST_PASSED と表示"
+    },
+    {
+      "launch": "UNIT_TEST_PASSED",
+      "prompt": "統合テストを実行してください：\n1. npm run test:integration\n2. 成功したら INTEGRATION_TEST_PASSED と表示"
+    },
+    {
+      "launch": "INTEGRATION_TEST_PASSED",
+      "path": "code-review.sh",
+      "next": "CODE_REVIEWED",
+      "handling": "block"
+    },
+    {
+      "launch": "CODE_REVIEWED",
+      "path": "security-check.sh",
+      "next": "SECURITY_CHECKED",
+      "handling": "block"
+    },
+    {
+      "launch": "SECURITY_CHECKED",
+      "path": "commit.sh",
+      "next": "COMMITTED",
+      "handling": "pass"
+    },
+    {
+      "launch": "COMMITTED",
+      "path": "create-pr.sh",
+      "next": "STOP",
+      "handling": "pass"
+    },
+    {
+      "launch": "STATIC_ANALYSIS_FAILED",
+      "prompt": "静的解析でエラーが見つかりました。修正してください。修正完了後、FIXED と表示してください。"
+    },
+    {
+      "launch": "FIXED",
+      "prompt": "再度静的解析を実行してください。"
+    },
+    {
+      "launch": "STOP",
+      "path": "stop.sh",
+      "next": null,
+      "handling": "pass"
+    }
+  ]
+}
+
+{
+  "comment": "シンプルなテスト専用フローの例",
+  "hooks": [
+    {
+      "launch": null,
+      "prompt": "テストを実行してください。完了したら TEST_COMPLETED と表示してください。"
+    },
+    {
+      "launch": "TEST_COMPLETED",
+      "path": "stop.sh",
+      "next": null,
+      "handling": "pass"
+    }
+  ]
+}
+
+{
+  "comment": "デバッグ用フローの例（エラーハンドリング重視）",
+  "hooks": [
+    {
+      "launch": null,
+      "prompt": "デバッグモードで実行します。各ステップを詳細に報告してください。\n\n作業内容：\n$WORK_SUMMARY\n\n最初にコードの状態を確認し、DEBUG_STARTED と表示してください。"
+    },
+    {
+      "launch": "DEBUG_STARTED",
+      "path": "debug-info.sh",
+      "next": "DEBUG_INFO_COLLECTED",
+      "handling": "raise"
+    },
+    {
+      "launch": "DEBUG_INFO_COLLECTED",
+      "prompt": "デバッグ情報を確認してください。問題が特定できたら ISSUE_IDENTIFIED と表示してください。"
+    },
+    {
+      "launch": "ISSUE_IDENTIFIED",
+      "prompt": "問題を修正してください。修正完了後、ISSUE_FIXED と表示してください。"
+    },
+    {
+      "launch": "ISSUE_FIXED",
+      "prompt": "修正を確認するためのテストを実行してください。成功したら VERIFICATION_PASSED と表示してください。"
+    },
+    {
+      "launch": "VERIFICATION_PASSED",
+      "path": "commit.sh",
+      "next": "STOP",
+      "handling": "pass"
+    },
+    {
+      "launch": "STOP",
+      "path": "stop.sh",
+      "next": null,
+      "handling": "pass"
+    }
+  ]
+}
+
+{
+  "comment": "最小限のカスタムフローの例",
+  "hooks": [
+    {
+      "launch": null,
+      "prompt": "作業を確認し、必要に応じて修正を行ってください。完了したら WORK_COMPLETED と表示してください。"
+    },
+    {
+      "launch": "WORK_COMPLETED",
+      "path": "stop.sh",
+      "next": null,
+      "handling": "pass"
+    }
+  ]
+}
