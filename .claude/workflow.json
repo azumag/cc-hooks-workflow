@@ -14,9 +14,8 @@
     },
     {
       "launch": "WORKFLOW_STOP",
-      "path": "hooks/stop.sh",
-      "next": null,
-      "handling": "pass"
+      "path": "workflow",
+      "args": ["--stop"]
     }
   ]
 }
