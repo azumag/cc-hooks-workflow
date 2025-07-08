@@ -79,15 +79,15 @@
   - [x] `tests/test_hooks.bats` (bats使用)
   - [x] `tests/test_integration.bats` (bats使用)
 
-## CI/CD 設定
-- [ ] GitHub Actions 設定
-  - [ ] `.github/workflows/test.yml` の作成
-  - [ ] テスト自動実行の設定
-  - [ ] shellcheck による構文チェック
-- [ ] 品質チェック
-  - [ ] 実行権限の検証
-  - [ ] ファイル構造の検証
-  - [ ] テストカバレッジの計測
+## CI/CD 設定 ✅
+- [x] GitHub Actions 設定
+  - [x] `.github/workflows/ci.yml` の作成
+  - [x] テスト自動実行の設定
+  - [x] shellcheck による構文チェック
+- [x] 品質チェック
+  - [x] 実行権限の検証
+  - [x] ファイル構造の検証
+  - [x] 基本的なワークフロー動作確認
 
 ## ドキュメント
 - [ ] 基本ドキュメント
