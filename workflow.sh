@@ -45,11 +45,20 @@ get_hook_config() {
     config=$(load_config)
     
     # 状態に対応するhook設定を検索
-    # stateがnullまたは空の場合は、launchがnullのエントリを探す
-    if [ -z "$state" ] || [ "$state" = "null" ]; then
-        echo "$config" | jq -r '.hooks[] | select(.launch == null)' 2>/dev/null || echo "{}"
+    # まず指定されたstateに対応するhook設定を探す
+    local hook_config
+    hook_config=$(echo "$config" | jq -r --arg state "$state" '.hooks[] | select(.launch == $state)' 2>/dev/null)
+    
+    # 該当するstateが見つからない場合は、launchがnullのエントリ（デフォルト）を探す
+    if [ -z "$hook_config" ] || [ "$hook_config" = "{}" ]; then
+        hook_config=$(echo "$config" | jq -r '.hooks[] | select(.launch == null)' 2>/dev/null)
+    fi
+    
+    # 結果を出力（何も見つからない場合は空のオブジェクト）
+    if [ -n "$hook_config" ] && [ "$hook_config" != "{}" ]; then
+        echo "$hook_config"
     else
-        echo "$config" | jq -r --arg state "$state" '.hooks[] | select(.launch == $state)' 2>/dev/null || echo "{}"
+        echo "{}"
     fi
 }
 
@@ -206,12 +215,10 @@ execute_prompt_hook() {
         work_summary_content=$(cat "$work_summary_file")
         prompt="${prompt//\$WORK_SUMMARY/$work_summary_content}"
     fi
-    
-    # プロンプトを標準出力に出力（Claude Codeに渡される）
-    echo "$prompt"
-    
-    # プロンプトフックは常に成功とみなす
-    return 0
+
+    jq -n \
+        --arg reason "$prompt" \
+        '{decision: "block", reason: $reason}'
 }
 
 # pathタイプのhookを実行（従来のスクリプト実行）
