@@ -50,10 +50,10 @@ if type setup_work_summary_paths >/dev/null 2>&1; then
     
     # Test with valid session ID
     setup_work_summary_paths "$TEST_TRANSCRIPT"
-    if [[ "$work_summary_tmp_dir" == *"test-session-id"* ]]; then
+    if [[ "$work_summary_tmp_dir" == "/tmp/claude/test-session-id" ]]; then
         echo "✅ Session ID extraction works correctly"
     else
-        echo "❌ Session ID extraction failed"
+        echo "❌ Session ID extraction failed: got '$work_summary_tmp_dir'"
         exit 1
     fi
     
@@ -63,9 +63,9 @@ else
     echo "⚠️  setup_work_summary_paths function not available"
 fi
 
-# Test: Assistant message extraction
+# Test: Assistant message extraction (using extract_assistant_text)
 echo "Testing assistant message extraction..."
-if type extract_assistant_messages >/dev/null 2>&1; then
+if type extract_assistant_text >/dev/null 2>&1; then
     # Create a temporary test file with assistant messages
     TEST_TRANSCRIPT="/tmp/test-assistant-messages.jsonl"
     cat > "$TEST_TRANSCRIPT" << 'EOF'
@@ -75,7 +75,7 @@ if type extract_assistant_messages >/dev/null 2>&1; then
 EOF
     
     # Test extracting last message
-    LAST_MESSAGE=$(extract_assistant_messages "$TEST_TRANSCRIPT" "last")
+    LAST_MESSAGE=$(extract_assistant_text "$TEST_TRANSCRIPT" "last")
     if [[ "$LAST_MESSAGE" == "second assistant message" ]]; then
         echo "✅ Assistant message extraction works correctly"
     else
@@ -86,7 +86,7 @@ EOF
     # Clean up
     rm -f "$TEST_TRANSCRIPT"
 else
-    echo "⚠️  extract_assistant_messages function not available"
+    echo "⚠️  extract_assistant_text function not available"
 fi
 
 echo ""

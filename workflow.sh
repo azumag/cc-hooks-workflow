@@ -107,21 +107,21 @@ setup_work_summary_paths() {
         session_id="unknown"
     fi
     
-    # グローバル変数に設定
-    work_summary_tmp_dir="$HOME/.claude/tmp/$session_id"
+    # グローバル変数に設定（/tmp/claude/の下にセッションIDディレクトリを作成）
+    work_summary_tmp_dir="/tmp/claude/$session_id"
     work_summary_file="$work_summary_tmp_dir/work_summary.txt"
 }
 
 # 共通のアシスタントメッセージ抽出関数
-extract_assistant_messages() {
+extract_assistant_text() {
     local transcript_path="$1"
-    local count="${2:-all}"
+    local mode="${2:-last}"  # "last" or "all"
     
     if [ ! -f "$transcript_path" ]; then
         return 1
     fi
     
-    if [ "$count" = "last" ]; then
+    if [ "$mode" = "last" ]; then
         cat "$transcript_path" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' | tail -n 1
     else
         cat "$transcript_path" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text'
@@ -133,12 +133,7 @@ extract_state_phrase() {
     local transcript_path="$1"
     
     # 共通関数を使用して最新メッセージを取得
-    local last_message
-    if last_message=$(extract_assistant_messages "$transcript_path" "last"); then
-        echo "$last_message"
-    else
-        return 1
-    fi
+    extract_assistant_text "$transcript_path" "last"
 }
 
 # 作業報告をセッション固有のパスに保存
@@ -149,7 +144,7 @@ save_work_summary() {
     mkdir -p "$work_summary_tmp_dir"
     
     # 共通関数を使用して最後のアシスタントメッセージを取得
-    if ! extract_assistant_messages "$transcript_path" "last" > "$work_summary_file"; then
+    if ! extract_assistant_text "$transcript_path" "last" > "$work_summary_file"; then
         log_error "アシスタントメッセージの抽出に失敗しました"
         return 1
     fi
