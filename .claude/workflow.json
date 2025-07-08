@@ -13,6 +13,15 @@
       "prompt": "コミットを実行してください。 コミットメッセージには、作業内容の要約を含めてください。作業が完了したら WORKFLOW_STOP とだけ表示せよ。"
     },
     {
+      "launch": "WORKFLOW_COMMITED",
+      "prompt": "pushを実行してください。pushが完了したら WORKFLOW_PUSHED とだけ表示せよ。"
+    },
+    {
+      "launch": "WORKFLOW_PUSHED",
+      "path": "hooks/ci_check.sh",
+      "next": "WORKFLOW_STOP"
+    },
+    {
       "launch": "WORKFLOW_STOP",
       "path": "workflow",
       "args": ["--stop"]

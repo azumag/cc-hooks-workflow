@@ -237,7 +237,7 @@ execute_path_hook() {
         return 1
     fi
     
-    # JSON入力の準備（hookがClaude Codeから単体実行可能にするため）
+    # JSON入力の準備
     local json_input
     json_input=$(jq -n --arg work_summary_file_path "$work_summary_file" '{work_summary_file_path: $work_summary_file_path}')
     
