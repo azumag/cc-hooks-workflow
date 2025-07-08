@@ -175,10 +175,13 @@ execute_hook() {
     log_info "Hookスクリプトを実行中: $hook_script"
     
     # hookを実行し、終了コードで判定（標準的なUnix方式）
+    # パイプラインの終了コードを確実に取得するため、変数に保存
+    local hook_exit_code
     echo "$json_input" | "$hook_path"
+    hook_exit_code=${PIPESTATUS[1]}
     
-    # hookの終了コードをそのまま返す
-    return $?
+    # hookの終了コードを明示的に返す
+    return $hook_exit_code
 }
 
 # ====================
