@@ -9,9 +9,6 @@ set -euo pipefail
 # 設定とマッピング
 # ====================
 
-# 状態フレーズの定義（順序は重要ではない）
-STATE_PHRASES=("REVIEW_COMPLETED" "PUSH_COMPLETED" "COMMIT_COMPLETED" "TEST_COMPLETED" "BUILD_COMPLETED" "IMPLEMENTATION_COMPLETED" "STOP")
-
 # 状態フレーズからhooksスクリプトへのマッピング
 # Using case statement instead of associative array for portability
 get_hook_script() {
@@ -118,17 +115,9 @@ extract_state_phrase() {
         return 0
     fi
     
-    # 状態フレーズをチェック
-    for state in "${STATE_PHRASES[@]}"; do
-        if [ "$last_message" = "$state" ]; then
-            echo "$state"
-            return 0
-        fi
-    done
-    
-    # 状態フレーズが見つからない場合
-    echo "NONE"
-    return 0
+    # 最新メッセージをそのまま状態として返す
+    # get_hook_scriptで対応していない状態は自然に無視される
+    echo "$last_message"
 }
 
 # 作業報告を一時ファイルに保存
