@@ -14,15 +14,9 @@ set -euo pipefail
 get_hook_script() {
     local state="$1"
     case "$state" in
-        "NONE") echo "initial-hook.sh --phrase=TEST_COMPLETED" ;;
-        "TEST_COMPLETED") echo "commit-hook.sh --phrase=COMMIT_COMPLETED" ;;
-        "COMMIT_COMPLETED") echo "push-hook.sh" ;;  # 終了（phraseなし）
-        "REVIEW_COMPLETED") echo "review-complete-hook.sh" ;;
-        "PUSH_COMPLETED") echo "push-complete-hook.sh" ;;
-        "BUILD_COMPLETED") echo "build-complete-hook.sh" ;;
-        "IMPLEMENTATION_COMPLETED") echo "implementation-complete-hook.sh" ;;
-        "STOP") echo "stop-hook.sh" ;;
-        *) echo "" ;;
+        "TEST_COMPLETED") echo "commit.sh --phrase=STOP" ;;
+        "STOP") echo "stop.sh" ;; # stop.shは実際には何もせずに終了する
+        *) echo "test.sh --phrase=TEST_COMPLETED" ;; # 何も指定されていない状態では起点フックをよぶ
     esac
 }
 
@@ -106,14 +100,9 @@ extract_state_phrase() {
         return 1
     fi
     
-    # アシスタントメッセージのテキストを取得 (簡素化)
+    # アシスタントメッセージのテキストを取得
     local last_message
     last_message=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' < "$transcript_path" | tail -n 1)
-    
-    if [ -z "$last_message" ]; then
-        echo "NONE"
-        return 0
-    fi
     
     # 最新メッセージをそのまま状態として返す
     # get_hook_scriptで対応していない状態は自然に無視される
@@ -238,8 +227,9 @@ main() {
     hook_command=$(get_hook_script "$state_phrase")
     
     if [ -z "$hook_command" ]; then
-        log_error "未知の状態フレーズ: $state_phrase"
-        exit 1
+        # 定義していない状態フレーズの場合は、エラーではない。
+        # 純粋にフックを設定していないだけなので、正常終了する。
+        exit 0
     fi
     
     log_info "実行するhookコマンド: $hook_command"
