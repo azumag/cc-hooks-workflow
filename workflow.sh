@@ -217,6 +217,7 @@ execute_path_hook() {
     local work_summary_file="$2"
     local next_phrase="$3"
     local handling="$4"
+    local hook_config="$5"
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
     # 相対パスの場合はスクリプトディレクトリを基準にする
@@ -240,14 +241,38 @@ execute_path_hook() {
     local json_input
     json_input=$(jq -n --arg work_summary_file_path "$work_summary_file" '{work_summary_file_path: $work_summary_file_path}')
     
+    # argsの処理
+    local args=()
+    if [ -n "$hook_config" ]; then
+        # JSONの妥当性チェック
+        if ! echo "$hook_config" | jq empty 2>/dev/null; then
+            log_error "不正なJSON形式のhook_config"
+            return 1
+        fi
+        
+        # mapfileを使用してシンプルに
+        if ! mapfile -t args < <(echo "$hook_config" | jq -r '.args[]? // empty' 2>/dev/null); then
+            log_warning "args配列の解析に失敗しました"
+            args=()
+        fi
+        
+        # 引数の検証（危険な文字のチェック）
+        for arg in "${args[@]}"; do
+            if [[ "$arg" =~ [\;\|\&\$\`] ]]; then
+                log_error "危険な文字が含まれています: $arg"
+                return 1
+            fi
+        done
+    fi
+    
     log_info "Hookスクリプトを実行中: $hook_path"
     
     # nextパラメータがある場合は--phraseオプションとして渡す
     local hook_exit_code
     if [ -n "$next_phrase" ] && [ "$next_phrase" != "null" ]; then
-        echo "$json_input" | "$hook_path" --phrase="$next_phrase"
+        echo "$json_input" | "$hook_path" --phrase="$next_phrase" "${args[@]}"
     else
-        echo "$json_input" | "$hook_path"
+        echo "$json_input" | "$hook_path" "${args[@]}"
     fi
     hook_exit_code=${PIPESTATUS[1]}
     
@@ -318,7 +343,7 @@ execute_hook() {
         execute_prompt_hook "$prompt" "$work_summary_file"
     elif [ -n "$path" ]; then
         # pathタイプのhook
-        execute_path_hook "$path" "$work_summary_file" "$next" "$handling"
+        execute_path_hook "$path" "$work_summary_file" "$next" "$handling" "$hook_config"
     else
         log_warning "hook設定にpromptもpathも指定されていません"
         return 0
