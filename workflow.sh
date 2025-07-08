@@ -123,8 +123,8 @@ save_work_summary() {
         return 1
     fi
     
-    # アシスタントメッセージのテキストを直接取得 (簡素化)
-    if ! jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' < "$transcript_path" > "$work_summary_file"; then
+    # 最後のアシスタントメッセージのテキストのみを取得
+    if ! jq -r '[.[] | select(.type == "assistant")] | last | .message.content[]? | select(.type == "text") | .text' < "$transcript_path" > "$work_summary_file"; then
         log_error "アシスタントメッセージの抽出に失敗しました"
         return 1
     fi
