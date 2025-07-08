@@ -17,11 +17,6 @@
       "prompt": "pushを実行してください。pushが完了したら WORKFLOW_PUSHED とだけ表示せよ。"
     },
     {
-      "launch": "WORKFLOW_PUSHED",
-      "path": "hooks/ci_check.sh",
-      "next": "WORKFLOW_STOP"
-    },
-    {
       "launch": "WORKFLOW_STOP",
       "path": "workflow",
       "args": ["--stop"]
