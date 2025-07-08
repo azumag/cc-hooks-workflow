@@ -9,19 +9,22 @@ set -euo pipefail
 # 設定とマッピング
 # ====================
 
+# 状態フレーズの定義（順序は重要ではない）
+STATE_PHRASES=("REVIEW_COMPLETED" "PUSH_COMPLETED" "COMMIT_COMPLETED" "TEST_COMPLETED" "BUILD_COMPLETED" "IMPLEMENTATION_COMPLETED" "STOP")
+
 # 状態フレーズからhooksスクリプトへのマッピング
 # Using case statement instead of associative array for portability
 get_hook_script() {
     local state="$1"
     case "$state" in
-        "REVIEW_COMPLETED") echo "review-complete-hook.sh" ;;
-        "PUSH_COMPLETED") echo "push-complete-hook.sh" ;;
-        "COMMIT_COMPLETED") echo "commit-complete-hook.sh" ;;
+        "NONE") echo "initial-hook.sh" ;;
         "TEST_COMPLETED") echo "test-complete-hook.sh" ;;
+        "REVIEW_COMPLETED") echo "review-complete-hook.sh" ;;
+        "COMMIT_COMPLETED") echo "commit-complete-hook.sh" ;;
+        "PUSH_COMPLETED") echo "push-complete-hook.sh" ;;
         "BUILD_COMPLETED") echo "build-complete-hook.sh" ;;
         "IMPLEMENTATION_COMPLETED") echo "implementation-complete-hook.sh" ;;
         "STOP") echo "stop-hook.sh" ;;
-        "NONE") echo "initial-hook.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -116,8 +119,7 @@ extract_state_phrase() {
     fi
     
     # 状態フレーズをチェック
-    local states=("REVIEW_COMPLETED" "PUSH_COMPLETED" "COMMIT_COMPLETED" "TEST_COMPLETED" "BUILD_COMPLETED" "IMPLEMENTATION_COMPLETED" "STOP")
-    for state in "${states[@]}"; do
+    for state in "${STATE_PHRASES[@]}"; do
         if [ "$last_message" = "$state" ]; then
             echo "$state"
             return 0
