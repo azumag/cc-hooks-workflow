@@ -168,46 +168,17 @@ execute_hook() {
         return 1
     fi
     
-    # JSON入力の準備
+    # JSON入力の準備（hookがClaude Codeから単体実行可能にするため）
     local json_input
     json_input=$(jq -n --arg work_summary_file_path "$work_summary_file" '{work_summary_file_path: $work_summary_file_path}')
     
     log_info "Hookスクリプトを実行中: $hook_script"
     
-    local hook_output
+    # hookを実行し、終了コードで判定（標準的なUnix方式）
+    echo "$json_input" | "$hook_path"
     
-    # シンプルなstdout/stderr分離
-    hook_output=$(echo "$json_input" | "$hook_path" 2>/dev/null)
-    
-    if [ -z "$hook_output" ]; then
-        log_error "Hookスクリプトから出力がありません: $hook_script"
-        return 1
-    fi
-    
-    # JSON出力の検証
-    if ! echo "$hook_output" | jq . >/dev/null 2>&1; then
-        log_error "Hookスクリプトから無効なJSON出力: $hook_script"
-        log_error "出力: $hook_output"
-        return 1
-    fi
-    
-    # decision フィールドの処理
-    local decision
-    decision=$(echo "$hook_output" | jq -r '.decision // "approve"')
-    
-    local reason
-    reason=$(echo "$hook_output" | jq -r '.reason // "処理完了"')
-    
-    log_info "Hook決定: $decision"
-    log_info "理由: $reason"
-    
-    # blockの場合は1で終了、approveの場合は0で終了
-    if [ "$decision" = "block" ]; then
-        echo "$reason"
-        return 1
-    fi
-    
-    return 0
+    # hookの終了コードをそのまま返す
+    return $?
 }
 
 # ====================
@@ -275,10 +246,10 @@ main() {
     
     # hooksスクリプトを実行
     if execute_hook "$hook_script" "$work_summary_file"; then
-        log_info "Workflow完了 (承認)"
+        log_info "Workflow完了"
         exit 0
     else
-        log_info "Workflow完了 (ブロック)"
+        log_info "Workflow失敗"
         exit 1
     fi
 }
