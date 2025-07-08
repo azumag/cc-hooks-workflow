@@ -14,7 +14,8 @@ set -euo pipefail
 get_hook_script() {
     local state="$1"
     case "$state" in
-        "TEST_COMPLETED") echo "commit.sh --phrase=STOP" ;;
+        "TEST_COMPLETED") echo "self-review.sh --phrase=SELF_REVIEWED" ;;
+        "SELF_REVIEWED") echo "commit.sh --phrase=STOP" ;;
         "STOP") echo "stop.sh" ;; # stop.shは実際には何もせずに終了する
         *) echo "test.sh --phrase=TEST_COMPLETED" ;; # 何も指定されていない状態では起点フックをよぶ
     esac

@@ -1,30 +1,35 @@
 #!/bin/bash
 
-set -euo pipefail
+# --phraseオプションの処理
+NEXT_PHRASE=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --phrase=*)
+            NEXT_PHRASE="${1#*=}"
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
 
-# JSON入力を読み取る
-input=$(cat)
+REASON=$(cat <<EOF
+- SubAgent に Task として作業内容の厳正なレビューを行わせ,
+  その結果をもとに、必要な修正を行え
+- 自ら git diff やコミット確認を行なって把握せよ
+- 作業完了したら $NEXT_PHRASE とは発言せず、作業報告を行うこと
+- SubAgent のレビューの結果、問題がないと判断されたときのみ、 $NEXT_PHRASE とだけ発言せよ
 
-# JSON検証
-if [ -z "$input" ] || ! echo "$input" | jq . >/dev/null 2>&1; then
-    echo "Invalid JSON input" >&2
-    exit 1
-fi
+## レビュー観点:
+- YAGNI：今必要じゃない機能は作らない
+- DRY：同じコードを繰り返さない
+- KISS：シンプルに保つ
+- t-wada TDD：テスト駆動開発
+EOF
+)
 
-# 作業報告ファイルパスを取得
-work_summary_file_path=$(echo "$input" | jq -r '.work_summary_file_path')
-
-if [ "$work_summary_file_path" = "null" ] || [ -z "$work_summary_file_path" ]; then
-    echo '{"decision": "block", "reason": "Missing work_summary_file_path"}'
-    exit 1
-fi
-
-# ファイルが存在し、空でないことを確認
-if [ ! -f "$work_summary_file_path" ] || [ ! -s "$work_summary_file_path" ]; then
-    echo '{"decision": "block", "reason": "Work summary file not found or empty"}'
-    exit 1
-fi
-
-# Self-review complete処理
-echo '{"decision": "approve", "reason": "Self-review completed successfully"}'
-exit 0
+jq -n \
+    --arg phrase "$NEXT_PHRASE" \
+    --arg reason "$REASON" \
+    '{decision: "block", reason: $reason}'

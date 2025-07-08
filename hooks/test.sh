@@ -14,7 +14,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-REASON="testを実行し、テスト完了を確認してください。テストが正常終了した時のみ、 $NEXT_PHRASE と発言してください。"
+REASON=$(cat <<EOF
+testを実行し、テスト完了を確認してください。
+テストが正常終了した時のみ、 $NEXT_PHRASE と発言してください。
+EOF
+)
 
 jq -n \
     --arg phrase "$NEXT_PHRASE" \
