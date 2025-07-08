@@ -9,10 +9,10 @@ set -euo pipefail
 # 設定とマッピング
 # ====================
 
-# 作業報告ファイルパス
-claude_tmp_dir=".claude/tmp"
-work_summary_file="$claude_tmp_dir/work_summary.txt"
- 
+# 作業報告ファイルパス（セッションID取得後に設定）
+work_summary_tmp_dir=""
+work_summary_file=""
+
 
 # 状態フレーズからhooksスクリプトへのマッピング
 # hookスクリプト名と次の状態フレーズオプションを直接返す
@@ -94,37 +94,62 @@ find_latest_transcript() {
     fi
 }
 
+# セッションIDを取得してwork_summary_file_pathを設定
+setup_work_summary_paths() {
+    local transcript_path="$1"
+    
+    # セッションIDをファイル名から抽出（シンプル化）
+    local session_id
+    session_id=$(basename "$transcript_path" .jsonl)
+    
+    # 簡単な検証とフォールバック
+    if [[ ! "$session_id" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        session_id="unknown"
+    fi
+    
+    # グローバル変数に設定
+    work_summary_tmp_dir="$HOME/.claude/tmp/$session_id"
+    work_summary_file="$work_summary_tmp_dir/work_summary.txt"
+}
+
+# 共通のアシスタントメッセージ抽出関数
+extract_assistant_messages() {
+    local transcript_path="$1"
+    local count="${2:-all}"
+    
+    if [ ! -f "$transcript_path" ]; then
+        return 1
+    fi
+    
+    if [ "$count" = "last" ]; then
+        cat "$transcript_path" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' | tail -n 1
+    else
+        cat "$transcript_path" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text'
+    fi
+}
+
 # 最新のアシスタントメッセージから状態フレーズを抽出
 extract_state_phrase() {
     local transcript_path="$1"
     
-    if [ ! -f "$transcript_path" ]; then
+    # 共通関数を使用して最新メッセージを取得
+    local last_message
+    if last_message=$(extract_assistant_messages "$transcript_path" "last"); then
+        echo "$last_message"
+    else
         return 1
     fi
-    
-    # アシスタントメッセージのテキストを取得
-    local last_message
-    last_message=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' < "$transcript_path" | tail -n 1)
-    
-    # 最新メッセージをそのまま状態として返す
-    # get_hook_scriptで対応していない状態は自然に無視される
-    echo "$last_message"
 }
 
-# 作業報告を固定パスの一時ファイルに保存
+# 作業報告をセッション固有のパスに保存
 save_work_summary() {
     local transcript_path="$1"
    
-    # .claude/tmpディレクトリを作成
-    mkdir -p "$claude_tmp_dir"
+    # セッション固有のディレクトリを作成
+    mkdir -p "$work_summary_tmp_dir"
     
-    if [ ! -f "$transcript_path" ]; then
-        log_error "トランスクリプトファイルが見つかりません: $transcript_path"
-        return 1
-    fi
-    
-    # 最後のアシスタントメッセージのテキストのみを取得
-    if ! jq -r '[.[] | select(.type == "assistant")] | last | .message.content[]? | select(.type == "text") | .text' < "$transcript_path" > "$work_summary_file"; then
+    # 共通関数を使用して最後のアシスタントメッセージを取得
+    if ! extract_assistant_messages "$transcript_path" "last" > "$work_summary_file"; then
         log_error "アシスタントメッセージの抽出に失敗しました"
         return 1
     fi
@@ -204,6 +229,9 @@ main() {
     fi
     
     log_info "トランスクリプトファイル: $transcript_path"
+    
+    # セッションIDを取得してwork_summary_file_pathを設定
+    setup_work_summary_paths "$transcript_path"
     
     # 状態フレーズを抽出
     local state_phrase
