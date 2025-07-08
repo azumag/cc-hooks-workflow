@@ -51,7 +51,7 @@ teardown() {
 }
 
 @test "accepts valid JSON input with work summary file" {
-    run bash -c "echo '$VALID_JSON_INPUT' | ./hooks/review-complete-hook.sh"
+    run bash -c "echo '$VALID_JSON_INPUT' | ./hooks/review-complete-hook.sh 2>/dev/null"
     [ "$status" -eq 0 ]
     
     # Verify JSON output
@@ -63,7 +63,7 @@ teardown() {
 }
 
 @test "returns valid JSON format with required fields" {
-    run bash -c "echo '$VALID_JSON_INPUT' | ./hooks/review-complete-hook.sh"
+    run bash -c "echo '$VALID_JSON_INPUT' | ./hooks/review-complete-hook.sh 2>/dev/null"
     [ "$status" -eq 0 ]
     
     # Verify required fields exist
@@ -79,7 +79,7 @@ teardown() {
     local non_existent_file="/tmp/non_existent_$(date +%s).txt"
     local invalid_input='{"work_summary_file_path": "'$non_existent_file'"}'
     
-    run bash -c "echo '$invalid_input' | ./hooks/review-complete-hook.sh"
+    run bash -c "echo '$invalid_input' | ./hooks/review-complete-hook.sh 2>/dev/null"
     [ "$status" -eq 1 ]
     
     # Should still return valid JSON
@@ -93,7 +93,7 @@ teardown() {
 }
 
 @test "handles empty work summary file" {
-    run bash -c "echo '$EMPTY_FILE_JSON_INPUT' | ./hooks/review-complete-hook.sh"
+    run bash -c "echo '$EMPTY_FILE_JSON_INPUT' | ./hooks/review-complete-hook.sh 2>/dev/null"
     [ "$status" -eq 1 ]
     
     # Should return valid JSON with block decision
@@ -107,7 +107,7 @@ teardown() {
 }
 
 @test "handles invalid JSON input" {
-    run bash -c "echo 'invalid json' | ./hooks/review-complete-hook.sh"
+    run bash -c "echo 'invalid json' | ./hooks/review-complete-hook.sh 2>/dev/null"
     [ "$status" -eq 1 ]
     
     # Should return valid JSON with block decision
@@ -121,7 +121,7 @@ teardown() {
 }
 
 @test "handles empty JSON input" {
-    run bash -c "echo '$EMPTY_JSON_INPUT' | ./hooks/review-complete-hook.sh"
+    run bash -c "echo '$EMPTY_JSON_INPUT' | ./hooks/review-complete-hook.sh 2>/dev/null"
     [ "$status" -eq 1 ]
     
     # Should return valid JSON with block decision
@@ -135,7 +135,7 @@ teardown() {
 }
 
 @test "approves well-documented review work" {
-    run bash -c "echo '$GOOD_REVIEW_JSON_INPUT' | ./hooks/review-complete-hook.sh"
+    run bash -c "echo '$GOOD_REVIEW_JSON_INPUT' | ./hooks/review-complete-hook.sh 2>/dev/null"
     [ "$status" -eq 0 ]
     
     # Should return valid JSON with approve decision
@@ -154,7 +154,7 @@ teardown() {
     echo "Brief summary" > "$minimal_content_file"
     local minimal_input='{"work_summary_file_path": "'$minimal_content_file'"}'
     
-    run bash -c "echo '$minimal_input' | ./hooks/review-complete-hook.sh"
+    run bash -c "echo '$minimal_input' | ./hooks/review-complete-hook.sh 2>/dev/null"
     
     # Should still approve but with appropriate reasoning
     echo "$output" | jq . >/dev/null
@@ -178,7 +178,7 @@ teardown() {
     
     local permission_input='{"work_summary_file_path": "'$unreadable_file'"}'
     
-    run bash -c "echo '$permission_input' | ./hooks/review-complete-hook.sh"
+    run bash -c "echo '$permission_input' | ./hooks/review-complete-hook.sh 2>/dev/null"
     [ "$status" -eq 1 ]
     
     # Should return valid JSON with block decision

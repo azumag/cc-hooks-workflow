@@ -10,16 +10,21 @@ set -euo pipefail
 # ====================
 
 # 状態フレーズからhooksスクリプトへのマッピング
-declare -A STATE_MAPPING=(
-    ["R_EVIEW_COMPLETED"]="review-complete-hook.sh"
-    ["P_USH_COMPLETED"]="push-complete-hook.sh"
-    ["C_OMMIT_COMPLETED"]="commit-complete-hook.sh"
-    ["TEST_COMPLETED"]="test-complete-hook.sh"
-    ["BUILD_COMPLETED"]="build-complete-hook.sh"
-    ["IMPLEMENTATION_COMPLETED"]="implementation-complete-hook.sh"
-    ["STOP"]="stop-hook.sh"
-    ["NONE"]="initial-hook.sh"
-)
+# Using case statement instead of associative array for portability
+get_hook_script() {
+    local state="$1"
+    case "$state" in
+        "REVIEW_COMPLETED") echo "review-complete-hook.sh" ;;
+        "PUSH_COMPLETED") echo "push-complete-hook.sh" ;;
+        "COMMIT_COMPLETED") echo "commit-complete-hook.sh" ;;
+        "TEST_COMPLETED") echo "test-complete-hook.sh" ;;
+        "BUILD_COMPLETED") echo "build-complete-hook.sh" ;;
+        "IMPLEMENTATION_COMPLETED") echo "implementation-complete-hook.sh" ;;
+        "STOP") echo "stop-hook.sh" ;;
+        "NONE") echo "initial-hook.sh" ;;
+        *) echo "" ;;
+    esac
+}
 
 # 依存関係一覧
 REQUIRED_DEPS=("jq" "grep" "tail" "mktemp")
@@ -103,7 +108,7 @@ extract_state_phrase() {
     
     # アシスタントメッセージのテキストを取得 (簡素化)
     local last_message
-    last_message=$(jq -r '.type == "assistant" and has("message") and (.message.content[] | select(.type == "text")) | .message.content[] | select(.type == "text") | .text' < "$transcript_path" | tail -n 1)
+    last_message=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' < "$transcript_path" | tail -n 1)
     
     if [ -z "$last_message" ]; then
         echo "NONE"
@@ -111,7 +116,8 @@ extract_state_phrase() {
     fi
     
     # 状態フレーズをチェック
-    for state in "${!STATE_MAPPING[@]}"; do
+    local states=("REVIEW_COMPLETED" "PUSH_COMPLETED" "COMMIT_COMPLETED" "TEST_COMPLETED" "BUILD_COMPLETED" "IMPLEMENTATION_COMPLETED" "STOP")
+    for state in "${states[@]}"; do
         if [ "$last_message" = "$state" ]; then
             echo "$state"
             return 0
@@ -136,7 +142,7 @@ save_work_summary() {
     fi
     
     # アシスタントメッセージのテキストを直接取得 (簡素化)
-    if ! jq -r '.type == "assistant" and has("message") and (.message.content[] | select(.type == "text")) | .message.content[] | select(.type == "text") | .text' < "$transcript_path" > "$temp_file"; then
+    if ! jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' < "$transcript_path" > "$temp_file"; then
         log_error "アシスタントメッセージの抽出に失敗しました"
         rm -f "$temp_file"
         return 1
@@ -156,7 +162,8 @@ save_work_summary() {
 execute_hook() {
     local hook_script="$1"
     local work_summary_file="$2"
-    local hook_path="./hooks/$hook_script"
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local hook_path="$script_dir/hooks/$hook_script"
     
     # スクリプトの存在確認
     if [ ! -f "$hook_path" ]; then
@@ -250,7 +257,8 @@ main() {
     log_info "検出された状態: $state_phrase"
     
     # 状態に対応するhooksスクリプトを決定
-    local hook_script="${STATE_MAPPING[$state_phrase]:-}"
+    local hook_script
+    hook_script=$(get_hook_script "$state_phrase")
     
     if [ -z "$hook_script" ]; then
         log_error "未知の状態フレーズ: $state_phrase"

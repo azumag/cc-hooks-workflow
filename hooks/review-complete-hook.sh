@@ -1,91 +1,104 @@
 #!/bin/bash
-# review-complete-hook.sh - R_EVIEW_COMPLETED状態のhooks (レビュー完了時)
-# JSON入力: {"work_summary_file_path": "/path/to/file"}
-# JSON出力: {"decision": "approve|block", "reason": "理由"}
+# Review Complete Hook
+# REVIEW_COMPLETED状態で呼び出されるhookスクリプト
+# 作業報告を受け取り、レビュー完了の処理を行う
 
 set -euo pipefail
 
-# 依存関係チェック
-if ! command -v jq >/dev/null 2>&1; then
-    echo '{"decision": "block", "reason": "Missing required dependency: jq. Install jq: apt-get install jq (Ubuntu) or brew install jq (macOS)"}'
-    exit 1
-fi
+# ====================
+# ユーティリティ関数
+# ====================
 
-# JSON入力を読み取り
-json_input=$(cat) || {
-    echo '{"decision": "block", "reason": "Failed to read JSON input from stdin"}'
-    exit 1
+# ログ関数
+log_info() {
+    echo "INFO [review-complete-hook]: $*" >&2
 }
 
-# 入力の空チェック
-if [ -z "$json_input" ]; then
-    echo '{"decision": "block", "reason": "JSON input is empty"}'
-    exit 1
-fi
-
-# work_summary_file_pathを抽出
-work_summary_file_path=$(echo "$json_input" | jq -r '.work_summary_file_path // empty' 2>/dev/null) || {
-    echo '{"decision": "block", "reason": "Invalid JSON format. Check input format: {\"work_summary_file_path\": \"/path/to/file\"}"}'
-    exit 1
+log_error() {
+    echo "ERROR [review-complete-hook]: $*" >&2
 }
 
-# work_summary_file_pathの存在チェック
-if [ -z "$work_summary_file_path" ] || [ "$work_summary_file_path" = "null" ]; then
-    echo '{"decision": "block", "reason": "Missing work_summary_file_path field. Ensure JSON contains work_summary_file_path field"}'
-    exit 1
-fi
-
-# ファイルの存在確認
-if [ ! -f "$work_summary_file_path" ]; then
-    echo '{"decision": "block", "reason": "Work summary file not found: '"$work_summary_file_path"'. Check if file exists and path is correct"}'
-    exit 1
-fi
-
-# ファイルが読み取り可能かチェック
-if [ ! -r "$work_summary_file_path" ]; then
-    echo '{"decision": "block", "reason": "Cannot read work summary file: '"$work_summary_file_path"'. Check file permissions"}'
-    exit 1
-fi
-
-# ファイルが空でないことを確認
-if [ ! -s "$work_summary_file_path" ]; then
-    echo '{"decision": "block", "reason": "Work summary file is empty: '"$work_summary_file_path"'. Ensure file contains valid content"}'
-    exit 1
-fi
-
-# 作業報告の内容を読み取り
-work_summary_content=$(cat "$work_summary_file_path") || {
-    echo '{"decision": "block", "reason": "Failed to read work summary file: '"$work_summary_file_path"'. Check file integrity and permissions"}'
-    exit 1
+# JSON出力関数
+output_json() {
+    local decision="$1"
+    local reason="$2"
+    echo "{\"decision\": \"$decision\", \"reason\": \"$reason\"}"
 }
 
-# レビュー完了の検証ロジック
-# 1. 基本的な内容の存在確認
-content_length=$(echo "$work_summary_content" | wc -c)
-if [ "$content_length" -lt 10 ]; then
-    echo '{"decision": "block", "reason": "Work summary content too short for meaningful review. Provide more detailed review information"}'
-    exit 1
-fi
+# ====================
+# メイン処理
+# ====================
 
-# 2. レビュー完了の品質チェック
-# レビュー関連のキーワードをチェック
-review_keywords=("review" "Review" "REVIEW" "test" "Test" "TEST" "code" "Code" "implementation" "Implementation")
-has_review_content=false
-
-for keyword in "${review_keywords[@]}"; do
-    if echo "$work_summary_content" | grep -q "$keyword"; then
-        has_review_content=true
-        break
+main() {
+    log_info "Review Complete Hookを開始"
+    
+    # JSON入力を読み取る
+    local input
+    input=$(cat)
+    
+    if [ -z "$input" ]; then
+        log_error "入力が空です"
+        output_json "block" "Invalid JSON input"
+        exit 1
     fi
-done
+    
+    # JSON検証
+    if ! echo "$input" | jq . >/dev/null 2>&1; then
+        log_error "無効なJSON入力"
+        output_json "block" "Invalid JSON input"
+        exit 1
+    fi
+    
+    # 作業報告ファイルパスを取得
+    local work_summary_file_path
+    work_summary_file_path=$(echo "$input" | jq -r '.work_summary_file_path')
+    
+    if [ "$work_summary_file_path" = "null" ] || [ -z "$work_summary_file_path" ]; then
+        log_error "作業報告ファイルパスが指定されていません"
+        output_json "block" "Missing work_summary_file_path"
+        exit 1
+    fi
+    
+    log_info "作業報告ファイル: $work_summary_file_path"
+    
+    # 作業報告ファイルの存在確認
+    if [ ! -f "$work_summary_file_path" ]; then
+        log_error "作業報告ファイルが見つかりません: $work_summary_file_path"
+        output_json "block" "Work summary file not found"
+        exit 1
+    fi
+    
+    # 作業報告ファイルが空でないか確認
+    if [ ! -s "$work_summary_file_path" ]; then
+        log_error "作業報告ファイルが空です: $work_summary_file_path"
+        output_json "block" "Work summary file is empty"
+        exit 1
+    fi
+    
+    # 作業報告を読み取る
+    local work_summary
+    if ! work_summary=$(cat "$work_summary_file_path" 2>/dev/null); then
+        log_error "作業報告ファイルを読み取れません: $work_summary_file_path"
+        output_json "block" "Cannot read work summary file"
+        exit 1
+    fi
+    
+    # レビューロジック
+    log_info "レビューを実行中..."
+    
+    # 作業報告の内容をチェック（例）
+    if echo "$work_summary" | grep -q "ERROR\|FAILED\|失敗"; then
+        log_info "エラーキーワードが検出されました"
+        output_json "block" "作業報告にエラーが含まれています"
+        exit 0
+    fi
+    
+    # デフォルトは承認
+    output_json "approve" "Review completed successfully"
+    exit 0
+}
 
-# 3. レビュー判定
-if [ "$has_review_content" = "true" ]; then
-    # レビュー関連の内容が含まれている場合
-    echo '{"decision": "approve", "reason": "Review completed successfully. Work summary contains appropriate review content and demonstrates thorough analysis"}'
-    exit 0
-else
-    # レビュー関連の内容が少ない場合でも、基本的な作業報告として承認
-    echo '{"decision": "approve", "reason": "Review completed. Work summary provided, though additional review details could enhance the documentation"}'
-    exit 0
+# スクリプトが直接実行された場合のみmainを実行
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    main "$@"
 fi

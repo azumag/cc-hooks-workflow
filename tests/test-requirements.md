@@ -5,7 +5,7 @@
 使用頻度調査に基づき、以下3つのhooksを優先実装：
 
 1. **initial-hook.sh** (NONE状態) - 必須
-2. **review-complete-hook.sh** (R_EVIEW_COMPLETED状態) - 高頻度
+2. **review-complete-hook.sh** (REVIEW_COMPLETED状態) - 高頻度
 3. **stop-hook.sh** (STOP状態) - 既存機能
 
 ## initial-hook.sh テストケース

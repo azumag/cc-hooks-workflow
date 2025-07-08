@@ -1,2 +1,3 @@
 hooks_old/
 .env
+.tmp/

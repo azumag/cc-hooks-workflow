@@ -41,14 +41,14 @@
   - [x] 不正な JSON のエラーハンドリング
 
 ## hooks スクリプト ✅
-- [ ] 基本的な hooks スクリプトの作成
-  - [ ] 実行権限の設定
-  - [ ] 引数処理 (JSON input with work_summary_file_path)
-  - [ ] JSON 出力フォーマット準備
-- [ ] サンプル hooks の実装
-  - [ ] レビュー用 hooks (review-complete-hook.sh)
-  - [ ] CI監視用 hooks (ci-monitor-hook.sh)
-  - [ ] エラーハンドリング hooks (shared-utils.sh) [YAGNI原則により削除 - 実使用時に作成]
+- [x] 基本的な hooks スクリプトの作成
+  - [x] 実行権限の設定
+  - [x] 引数処理 (JSON input with work_summary_file_path)
+  - [x] JSON 出力フォーマット準備
+- [x] サンプル hooks の実装
+  - [x] レビュー用 hooks (review-complete-hook.sh)
+  - [x] CI監視用 hooks (ci-monitor-hook.sh)
+  - [x] エラーハンドリング hooks (shared-utils.sh) [YAGNI原則により削除 - 実使用時に作成]
 
 ## エラーハンドリング
 - [x] 一般的なエラー処理
@@ -76,8 +76,8 @@
   - [x] エラーシナリオのテスト
 - [x] テストスクリプトの作成
   - [x] `tests/test_workflow.sh`
-  - [ ] `tests/test_hooks.bats` (bats使用)
-  - [ ] `tests/test_integration.bats` (bats使用)
+  - [x] `tests/test_hooks.bats` (bats使用)
+  - [x] `tests/test_integration.bats` (bats使用)
 
 ## CI/CD 設定
 - [ ] GitHub Actions 設定
