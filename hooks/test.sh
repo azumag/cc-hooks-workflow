@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 REASON=$(cat <<EOF
-testを実行し、テスト完了を確認してください。
+test_workflow.sh を実行し、テスト完了を確認してください。
 テストが正常終了した時のみ、 $NEXT_PHRASE と発言してください。
 EOF
 )
