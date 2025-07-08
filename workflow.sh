@@ -392,6 +392,11 @@ main() {
     fi
 }
 
+# --stop オプションが渡された場合は即座に終了
+if [ "${1:-}" = "--stop" ]; then
+    exit 0
+fi
+
 # スクリプトが直接実行された場合のみmainを実行
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
     main "$@"
