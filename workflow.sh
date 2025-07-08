@@ -115,16 +115,16 @@ setup_work_summary_paths() {
 # 共通のアシスタントメッセージ抽出関数
 extract_assistant_text() {
     local transcript_path="$1"
-    local mode="${2:-last}"  # "last" or "all"
     
     if [ ! -f "$transcript_path" ]; then
         return 1
     fi
     
-    if [ "$mode" = "last" ]; then
-        cat "$transcript_path" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' | tail -n 1
-    else
-        cat "$transcript_path" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text'
+    # 最新のアシスタントメッセージの完全なテキストを取得（改行を含む）
+    # JSONL形式なので、最後のアシスタントメッセージを正しく抽出
+    local last_assistant_line=$(grep '"type":"assistant"' "$transcript_path" | tail -n 1)
+    if [ -n "$last_assistant_line" ]; then
+        echo "$last_assistant_line" | jq -r '.message.content[]? | select(.type == "text") | .text'
     fi
 }
 
@@ -133,7 +133,7 @@ extract_state_phrase() {
     local transcript_path="$1"
     
     # 共通関数を使用して最新メッセージを取得
-    extract_assistant_text "$transcript_path" "last"
+    extract_assistant_text "$transcript_path"
 }
 
 # 作業報告をセッション固有のパスに保存
@@ -144,7 +144,7 @@ save_work_summary() {
     mkdir -p "$work_summary_tmp_dir"
     
     # 共通関数を使用して最後のアシスタントメッセージを取得
-    if ! extract_assistant_text "$transcript_path" "last" > "$work_summary_file"; then
+    if ! extract_assistant_text "$transcript_path" > "$work_summary_file"; then
         log_error "アシスタントメッセージの抽出に失敗しました"
         return 1
     fi

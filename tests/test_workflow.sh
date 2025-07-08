@@ -66,25 +66,49 @@ fi
 # Test: Assistant message extraction (using extract_assistant_text)
 echo "Testing assistant message extraction..."
 if type extract_assistant_text >/dev/null 2>&1; then
-    # Create a temporary test file with assistant messages
+    # Test 1: Single-line message extraction
     TEST_TRANSCRIPT="/tmp/test-assistant-messages.jsonl"
     cat > "$TEST_TRANSCRIPT" << 'EOF'
 {"type":"user","message":{"content":[{"type":"text","text":"user message"}]}}
-{"type":"assistant","message":{"content":[{"type":"text","text":"first assistant message"}]}}
-{"type":"assistant","message":{"content":[{"type":"text","text":"second assistant message"}]}}
+{"type":"assistant","uuid":"msg1","message":{"content":[{"type":"text","text":"first assistant message"}]}}
+{"type":"assistant","uuid":"msg2","message":{"content":[{"type":"text","text":"second assistant message"}]}}
 EOF
     
     # Test extracting last message
-    LAST_MESSAGE=$(extract_assistant_text "$TEST_TRANSCRIPT" "last")
+    LAST_MESSAGE=$(extract_assistant_text "$TEST_TRANSCRIPT")
     if [[ "$LAST_MESSAGE" == "second assistant message" ]]; then
-        echo "✅ Assistant message extraction works correctly"
+        echo "✅ Single-line message extraction works correctly"
     else
-        echo "❌ Assistant message extraction failed: got '$LAST_MESSAGE'"
+        echo "❌ Single-line message extraction failed: got '$LAST_MESSAGE'"
+        exit 1
+    fi
+    
+    # Test 2: Multi-line message extraction
+    TEST_MULTILINE="/tmp/test-multiline-messages.jsonl"
+    cat > "$TEST_MULTILINE" << 'EOF'
+{"type":"user","message":{"content":[{"type":"text","text":"user message"}]}}
+{"type":"assistant","uuid":"msg1","message":{"content":[{"type":"text","text":"first line\nsecond line\nthird line"}]}}
+{"type":"assistant","uuid":"msg2","message":{"content":[{"type":"text","text":"final line 1\nfinal line 2\nfinal line 3"}]}}
+EOF
+    
+    MULTILINE_MESSAGE=$(extract_assistant_text "$TEST_MULTILINE")
+    EXPECTED_MULTILINE="final line 1
+final line 2
+final line 3"
+    
+    if [[ "$MULTILINE_MESSAGE" == "$EXPECTED_MULTILINE" ]]; then
+        echo "✅ Multi-line message extraction works correctly"
+    else
+        echo "❌ Multi-line message extraction failed"
+        echo "Expected:"
+        echo "$EXPECTED_MULTILINE"
+        echo "Got:"
+        echo "$MULTILINE_MESSAGE"
         exit 1
     fi
     
     # Clean up
-    rm -f "$TEST_TRANSCRIPT"
+    rm -f "$TEST_TRANSCRIPT" "$TEST_MULTILINE"
 else
     echo "⚠️  extract_assistant_text function not available"
 fi
