@@ -126,6 +126,9 @@
    - 作業報告ファイルの一時保存と受け渡し
 
 ### 🔍 発見された課題・改善点
+- [ ] **Stop Hook設定エラー修正 (2025-07-08)**
+  - **課題**: `.claude/workflow.json`の`WORKFLOW_STOP`で不正なパス`"./workflow.sh --stop"`が指定されていた
+  - **解決**: `"./hooks/stop.sh"`に修正、実行権限確認済み
 1. **引数フォーマット変更**
    - **変更**: hooks への引数が `$1: work_summary_file_path` から JSON入力に変更
    - **理由**: より構造化されたデータ受け渡しとClaude Code連携の準備
