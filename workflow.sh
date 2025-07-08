@@ -23,6 +23,15 @@ get_hook_script() {
 # 依存関係一覧
 REQUIRED_DEPS=("jq" "grep" "tail" "mktemp")
 
+# shared-utils.shの関数を読み込み
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SOURCE_DIR/hooks_old/shared-utils.sh" ]; then
+    source "$SOURCE_DIR/hooks_old/shared-utils.sh"
+else
+    log_error "shared-utils.shが見つかりません: $SOURCE_DIR/hooks_old/shared-utils.sh"
+    exit 1
+fi
+
 # ====================
 # ユーティリティ関数
 # ====================
@@ -57,39 +66,26 @@ check_dependencies() {
     fi
 }
 
-# Claude Code のプロジェクトディレクトリを探す
-find_claude_project_dir() {
-    local current_dir="$PWD"
-    while [ "$current_dir" != "/" ]; do
-        if [ -f "$current_dir/.claude/session.json" ]; then
-            echo "$current_dir"
-            return 0
-        fi
-        current_dir="$(dirname "$current_dir")"
-    done
-    return 1
-}
 
-# 最新のトランスクリプトファイルを探す
+# shared-utils.shの関数を使って最新のトランスクリプトファイルを探す
 find_latest_transcript() {
-    local project_dir="$1"
-    local transcript_dir="$project_dir/.claude/transcripts"
+    local transcript_dir="$HOME/.claude/projects"
     
-    if [ ! -d "$transcript_dir" ]; then
-        return 1
-    fi
-    
-    # 最新の.jsonlファイルを探す (シンプルなls -tを使用)
+    # shared-utils.shの関数を使用してより堅牢な検索を実行
     local latest_file
-    latest_file=$(find "$transcript_dir" -name "*.jsonl" -type f -print0 | 
-                  xargs -0 ls -t 2>/dev/null | head -1)
-    
-    if [ -n "$latest_file" ]; then
+    if latest_file=$(find_latest_transcript_in_dir "$transcript_dir"); then
         echo "$latest_file"
         return 0
+    else
+        local exit_code=$?
+        case $exit_code in
+            1) log_error "Claude transcriptsディレクトリが見つかりません: $transcript_dir" ;;
+            2) log_error "Claude transcriptsディレクトリに.jsonlファイルが見つかりません: $transcript_dir" ;;
+            3) log_error "Claude transcriptsファイルへのアクセス中にエラーが発生しました: $transcript_dir" ;;
+            *) log_error "Claude transcriptsファイルの検索中に予期しないエラーが発生しました: $transcript_dir" ;;
+        esac
+        return $exit_code
     fi
-    
-    return 1
 }
 
 # 最新のアシスタントメッセージから状態フレーズを抽出
@@ -195,18 +191,9 @@ main() {
     # 依存関係チェック
     check_dependencies
     
-    # Claude Codeプロジェクトディレクトリを探す
-    local project_dir
-    if ! project_dir=$(find_claude_project_dir); then
-        log_error "Claude Codeプロジェクトディレクトリが見つかりません"
-        exit 1
-    fi
-    
-    log_info "プロジェクトディレクトリ: $project_dir"
-    
     # 最新のトランスクリプトファイルを探す
     local transcript_path
-    if ! transcript_path=$(find_latest_transcript "$project_dir"); then
+    if ! transcript_path=$(find_latest_transcript); then
         log_error "トランスクリプトファイルが見つかりません"
         exit 1
     fi

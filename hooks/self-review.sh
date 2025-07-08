@@ -1,6 +1,4 @@
 #!/bin/bash
-# Commit Complete Hook
-# COMMIT_COMPLETED状態で呼び出されるhookスクリプト
 
 set -euo pipefail
 
@@ -9,7 +7,7 @@ input=$(cat)
 
 # JSON検証
 if [ -z "$input" ] || ! echo "$input" | jq . >/dev/null 2>&1; then
-    echo '{"decision": "block", "reason": "Invalid JSON input"}'
+    echo "Invalid JSON input" >&2
     exit 1
 fi
 
@@ -27,6 +25,6 @@ if [ ! -f "$work_summary_file_path" ] || [ ! -s "$work_summary_file_path" ]; the
     exit 1
 fi
 
-# Commit complete処理（コミット後の処理をここに実装）
-echo '{"decision": "approve", "reason": "Commit completed successfully"}'
+# Self-review complete処理
+echo '{"decision": "approve", "reason": "Self-review completed successfully"}'
 exit 0
