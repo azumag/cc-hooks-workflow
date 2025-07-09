@@ -250,11 +250,10 @@ execute_path_hook() {
             return 1
         fi
         
-        # mapfileを使用してシンプルに
-        if ! mapfile -t args < <(echo "$hook_config" | jq -r '.args[]? // empty' 2>/dev/null); then
-            log_warning "args配列の解析に失敗しました"
-            args=()
-        fi
+        # mapfileの代わりにwhileループを使用（古いbashとの互換性のため）
+        while IFS= read -r line; do
+            args+=("$line")
+        done < <(echo "$hook_config" | jq -r '.args[]? // empty' 2>/dev/null)
         
         # 引数の検証（危険な文字のチェック）
         for arg in "${args[@]}"; do
