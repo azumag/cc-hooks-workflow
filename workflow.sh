@@ -268,8 +268,13 @@ execute_path_hook() {
     log_info "Hookスクリプトを実行中: $hook_path"
     
     local hook_exit_code
-    echo "$json_input" | "$hook_path" "${args[@]}"
+    # 標準エラーを一時ファイルにリダイレクトして取得
+    local hook_stderr_file
+    hook_stderr_file=$(mktemp)
+    echo "$json_input" | "$hook_path" "${args[@]}" 2> "$hook_stderr_file"
     hook_exit_code=${PIPESTATUS[1]}
+    hook_stderr=$(cat "$hook_stderr_file")
+    rm -f "$hook_stderr_file"
     
     # handlingに応じた処理
     case "$handling" in
@@ -279,8 +284,10 @@ execute_path_hook() {
                 log_error "Hook実行失敗（block設定）: $hook_path"
                 # decision block JSONをClaudeに通知
                 # TODO: 標準エラーを受け取って、reasonに設定
-                jq -n --arg reason "Hook execution failed with block handling" '{decision: "block", reason: $reason}'
+                # 標準エラー出力を取得してreasonに含める
+                jq -n --arg reason $hook_stderr '{decision: "block", reason: $reason}'
                 exit 1
+                
             fi
             ;;
         "raise")
@@ -288,6 +295,7 @@ execute_path_hook() {
             if [ $hook_exit_code -ne 0 ]; then
                 log_error "Hook実行失敗（raise設定）: $hook_path"
                 # TODO: 標準エラーを出力して exit1
+                echo $hook_stderr >&2
                 exit 1
             fi
             ;;
