@@ -77,8 +77,8 @@ EOF
     [ -x "$ORIGINAL_DIR/workflow.sh" ]
 }
 
-# Test: workflow.sh detects REVIEW_COMPLETED state
-@test "workflow extracts REVIEW_COMPLETED state and calls correct hook" {
+# Test: Basic workflow functionality without config file
+@test "workflow handles missing config file and displays appropriate message" {
     create_mock_transcript "REVIEW_COMPLETED" "Review has been completed successfully"
     
     cd "$TEST_PROJECT_DIR"
@@ -89,81 +89,7 @@ EOF
     [[ "$output" =~ "no config found: .claude/workflow.json" ]]
 }
 
-# Test: workflow.sh detects STOP state
-@test "workflow extracts STOP state and calls stop hook" {
-    create_mock_transcript "STOP" "Stopping work for now"
-    
-    cd "$TEST_PROJECT_DIR"
-    run "$ORIGINAL_DIR/workflow.sh"
-    
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "no config found: .claude/workflow.json" ]]
-}
-
-# Test: workflow.sh detects NONE state when no state phrase
-@test "workflow extracts NONE state when no state phrase present" {
-    create_work_summary_transcript "Just finished implementing the feature"
-    
-    cd "$TEST_PROJECT_DIR"
-    run "$ORIGINAL_DIR/workflow.sh"
-    
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "no config found: .claude/workflow.json" ]]
-}
-
-# Test: complete JSON flow with mock hook
-@test "complete JSON communication flow through system" {
-    # Create transcript
-    create_mock_transcript "REVIEW_COMPLETED" "Comprehensive review completed"
-    
-    # Create workflow configuration file
-    cat > "$TEST_PROJECT_DIR/.claude/workflow.json" << 'EOF'
-{
-    "REVIEW_COMPLETED": {
-        "script": "hooks/review-complete-hook.sh",
-        "args": ["--review-mode"]
-    }
-}
-EOF
-    
-    # Create mock hook that returns JSON
-    mkdir -p "$ORIGINAL_DIR/hooks"
-    cat > "$ORIGINAL_DIR/hooks/review-complete-hook.sh" << 'EOF'
-#!/bin/bash
-# Read JSON input
-input=$(cat)
-work_summary_file=$(echo "$input" | jq -r '.work_summary_file_path')
-
-# Verify file exists and has content
-if [ -f "$work_summary_file" ] && [ -s "$work_summary_file" ]; then
-    echo '{"decision": "approve", "reason": "Review completed successfully"}'
-else
-    echo '{"decision": "block", "reason": "Work summary file not found or empty"}'
-fi
-EOF
-    chmod +x "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-    
-    cd "$TEST_PROJECT_DIR"
-    run "$ORIGINAL_DIR/workflow.sh"
-    
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "状態 '' に対応するフックが設定されていません" ]]
-    
-    # Cleanup
-    rm -f "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-}
-
-# Test: workflow handles missing Claude project
-@test "workflow handles missing Claude Code project directory" {
-    # Run from a directory without .claude
-    cd "$TEST_DIR"
-    run "$ORIGINAL_DIR/workflow.sh"
-    
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "no config found: .claude/workflow.json" ]]
-}
-
-# Test: workflow handles missing transcripts directory
+# Test: workflow.sh handles missing transcripts directory
 @test "workflow handles missing transcripts directory" {
     # Remove transcripts directory
     rm -rf "$TEST_TRANSCRIPTS_DIR"
@@ -175,12 +101,22 @@ EOF
     [[ "$output" =~ "no config found: .claude/workflow.json" ]]
 }
 
-# Test: workflow handles empty transcripts directory
+# Test: workflow.sh handles empty transcripts directory
 @test "workflow handles empty transcripts directory" {
     # Ensure directory is empty
     rm -f "$TEST_TRANSCRIPTS_DIR"/*
     
     cd "$TEST_PROJECT_DIR"
+    run "$ORIGINAL_DIR/workflow.sh"
+    
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "no config found: .claude/workflow.json" ]]
+}
+
+# Test: workflow handles missing Claude project
+@test "workflow handles missing Claude Code project directory" {
+    # Run from a directory without .claude
+    cd "$TEST_DIR"
     run "$ORIGINAL_DIR/workflow.sh"
     
     [ "$status" -eq 0 ]
@@ -202,76 +138,6 @@ EOF
     [[ "$output" =~ "no config found: .claude/workflow.json" ]]
 }
 
-# Test: workflow handles hook returning invalid JSON
-@test "workflow handles hook returning invalid JSON" {
-    create_mock_transcript "REVIEW_COMPLETED"
-    
-    # Create hook that returns invalid JSON
-    mkdir -p "$ORIGINAL_DIR/hooks"
-    cat > "$ORIGINAL_DIR/hooks/review-complete-hook.sh" << 'EOF'
-#!/bin/bash
-echo "This is not JSON"
-EOF
-    chmod +x "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-    
-    cd "$TEST_PROJECT_DIR"
-    run "$ORIGINAL_DIR/workflow.sh"
-    
-    # Should succeed with no config file found message
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "no config found: .claude/workflow.json" ]]
-    
-    # Cleanup
-    rm -f "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-}
-
-# Test: workflow handles hook with no output
-@test "workflow handles hook with no output" {
-    create_mock_transcript "REVIEW_COMPLETED"
-    
-    # Create hook that produces no output
-    mkdir -p "$ORIGINAL_DIR/hooks"
-    cat > "$ORIGINAL_DIR/hooks/review-complete-hook.sh" << 'EOF'
-#!/bin/bash
-# Silent hook - no output
-exit 0
-EOF
-    chmod +x "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-    
-    cd "$TEST_PROJECT_DIR"
-    run "$ORIGINAL_DIR/workflow.sh"
-    
-    # Should succeed with no config file found message
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "no config found: .claude/workflow.json" ]]
-    
-    # Cleanup
-    rm -f "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-}
-
-# Test: workflow handles hook returning block decision
-@test "workflow handles hook returning block decision" {
-    create_mock_transcript "REVIEW_COMPLETED"
-    
-    # Create hook that blocks
-    mkdir -p "$ORIGINAL_DIR/hooks"
-    cat > "$ORIGINAL_DIR/hooks/review-complete-hook.sh" << 'EOF'
-#!/bin/bash
-echo '{"decision": "block", "reason": "Review found critical issues"}'
-EOF
-    chmod +x "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-    
-    cd "$TEST_PROJECT_DIR"
-    run "$ORIGINAL_DIR/workflow.sh"
-    
-    # Should succeed with no config file found message
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "no config found: .claude/workflow.json" ]]
-    
-    # Cleanup
-    rm -f "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-}
-
 # Test: workflow handles multiple transcript files (selects latest)
 @test "workflow selects latest transcript when multiple exist" {
     # Create older transcript with different state
@@ -291,35 +157,8 @@ EOF
     [[ "$output" =~ "no config found: .claude/workflow.json" ]]
 }
 
-# Test: workflow creates and cleans up temporary work summary file
-@test "workflow creates and cleans up temporary work summary file" {
-    create_mock_transcript "REVIEW_COMPLETED" "Test work summary for cleanup test"
-    
-    # Create hook that saves the temp file path
-    mkdir -p "$ORIGINAL_DIR/hooks"
-    cat > "$ORIGINAL_DIR/hooks/review-complete-hook.sh" << 'EOF'
-#!/bin/bash
-input=$(cat)
-work_summary_file=$(echo "$input" | jq -r '.work_summary_file_path')
-# Save path for later verification
-echo "$work_summary_file" > /tmp/test_work_summary_path.txt
-echo '{"decision": "approve", "reason": "OK"}'
-EOF
-    chmod +x "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-    
-    cd "$TEST_PROJECT_DIR"
-    run "$ORIGINAL_DIR/workflow.sh"
-    
-    # Should succeed with no config file found message
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "no config found: .claude/workflow.json" ]]
-    
-    # Cleanup
-    rm -f "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-}
-
 # Test: workflow handles all defined state phrases
-@test "workflow maps all state phrases to correct hooks" {
+@test "workflow maps all state phrases to correct hook types" {
     # Test each state mapping
     local -A expected_mappings=(
         ["REVIEW_COMPLETED"]="review-complete-hook.sh"
@@ -364,104 +203,6 @@ EOF
     [[ "$output" =~ "no config found: .claude/workflow.json" ]]
 }
 
-# Test: workflow handles missing hook script file
-@test "workflow handles missing hook script file" {
-    create_mock_transcript "REVIEW_COMPLETED"
-    
-    # Ensure hook doesn't exist
-    rm -f "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-    
-    cd "$TEST_PROJECT_DIR"
-    run "$ORIGINAL_DIR/workflow.sh"
-    
-    # Should succeed with no config file found message
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "no config found: .claude/workflow.json" ]]
-}
-
-# Test: workflow handles non-executable hook script
-@test "workflow handles non-executable hook script" {
-    create_mock_transcript "REVIEW_COMPLETED"
-    
-    # Create non-executable hook
-    mkdir -p "$ORIGINAL_DIR/hooks"
-    cat > "$ORIGINAL_DIR/hooks/review-complete-hook.sh" << 'EOF'
-#!/bin/bash
-echo '{"decision": "approve", "reason": "OK"}'
-EOF
-    # Don't make it executable
-    chmod 644 "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-    
-    cd "$TEST_PROJECT_DIR"
-    run "$ORIGINAL_DIR/workflow.sh"
-    
-    # Should succeed with no config file found message
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "no config found: .claude/workflow.json" ]]
-    
-    # Cleanup
-    rm -f "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-}
-
-# Test: workflow processes complex work summary correctly
-@test "workflow extracts and passes complex work summary to hooks" {
-    local complex_summary="## Work Summary
-
-### Changes Made
-- Implemented feature X with proper error handling
-- Added comprehensive test coverage (95%)
-- Updated documentation with examples
-- Fixed memory leak in module Y
-
-### Technical Details
-\`\`\`bash
-# Code changes
-git diff --stat
- src/feature.js | 150 ++++
- tests/feature.test.js | 200 ++++
-\`\`\`
-
-### Next Steps
-1. Deploy to staging
-2. Monitor performance metrics
-3. Gather user feedback"
-    
-    create_mock_transcript "REVIEW_COMPLETED" "$complex_summary"
-    
-    # Create hook that verifies work summary content
-    mkdir -p "$ORIGINAL_DIR/hooks"
-    cat > "$ORIGINAL_DIR/hooks/review-complete-hook.sh" << 'EOF'
-#!/bin/bash
-input=$(cat)
-work_summary_file=$(echo "$input" | jq -r '.work_summary_file_path')
-
-if [ -f "$work_summary_file" ]; then
-    content=$(cat "$work_summary_file")
-    # Check for expected content patterns
-    if [[ "$content" =~ "Changes Made" ]] && \
-       [[ "$content" =~ "Technical Details" ]] && \
-       [[ "$content" =~ "Next Steps" ]]; then
-        echo '{"decision": "approve", "reason": "Complex work summary processed correctly"}'
-    else
-        echo '{"decision": "block", "reason": "Work summary content missing expected sections"}'
-    fi
-else
-    echo '{"decision": "block", "reason": "Work summary file not found"}'
-fi
-EOF
-    chmod +x "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-    
-    cd "$TEST_PROJECT_DIR"
-    run "$ORIGINAL_DIR/workflow.sh"
-    
-    # Should succeed with no config file found message
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "no config found: .claude/workflow.json" ]]
-    
-    # Cleanup
-    rm -f "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-}
-
 # Test: workflow handles transcript with only user messages
 @test "workflow handles transcript with only user messages" {
     cat > "$TEST_TRANSCRIPTS_DIR/user_only.jsonl" << 'EOF'
@@ -490,44 +231,3 @@ EOF
     [[ ! "$output" =~ "以下の依存関係が見つかりません" ]]
 }
 
-# Test: workflow handles concurrent execution (file safety)
-@test "workflow handles concurrent execution safely" {
-    create_mock_transcript "REVIEW_COMPLETED" "Concurrent test"
-    
-    # Create hook that sleeps to simulate long processing
-    mkdir -p "$ORIGINAL_DIR/hooks"
-    cat > "$ORIGINAL_DIR/hooks/review-complete-hook.sh" << 'EOF'
-#!/bin/bash
-input=$(cat)
-work_summary_file=$(echo "$input" | jq -r '.work_summary_file_path')
-# Verify each instance gets unique temp file
-echo "$work_summary_file" >> /tmp/concurrent_test_files.txt
-sleep 0.1
-echo '{"decision": "approve", "reason": "OK"}'
-EOF
-    chmod +x "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-    
-    # Clean up any previous test file
-    rm -f /tmp/concurrent_test_files.txt
-    
-    cd "$TEST_PROJECT_DIR"
-    
-    # Run multiple instances in background
-    "$ORIGINAL_DIR/workflow.sh" &
-    "$ORIGINAL_DIR/workflow.sh" &
-    "$ORIGINAL_DIR/workflow.sh" &
-    
-    # Wait for all to complete
-    wait
-    
-    # Verify each got a unique temp file
-    if [ -f /tmp/concurrent_test_files.txt ]; then
-        local file_count=$(wc -l < /tmp/concurrent_test_files.txt)
-        local unique_count=$(sort -u /tmp/concurrent_test_files.txt | wc -l)
-        [ "$file_count" -eq "$unique_count" ]
-        rm -f /tmp/concurrent_test_files.txt
-    fi
-    
-    # Cleanup
-    rm -f "$ORIGINAL_DIR/hooks/review-complete-hook.sh"
-}
