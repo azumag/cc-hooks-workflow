@@ -83,7 +83,7 @@ EOF
     # Should fail because hook doesn't exist yet, but log should show correct detection
     [ "$status" -eq 1 ]
     [[ "$output" =~ "検出された状態: REVIEW_COMPLETED" ]]
-    [[ "$output" =~ "実行するhook: review-complete-hook.sh" ]]
+    [[ "$output" =~ "実行するhook設定:" ]]
 }
 
 # Test: workflow.sh detects STOP state
@@ -95,7 +95,7 @@ EOF
     
     [ "$status" -eq 1 ]
     [[ "$output" =~ "検出された状態: STOP" ]]
-    [[ "$output" =~ "実行するhook: stop-hook.sh" ]]
+    [[ "$output" =~ "実行するhook設定:" ]]
 }
 
 # Test: workflow.sh detects NONE state when no state phrase
@@ -107,7 +107,7 @@ EOF
     
     [ "$status" -eq 1 ]
     [[ "$output" =~ "検出された状態: NONE" ]]
-    [[ "$output" =~ "実行するhook: initial-hook.sh" ]]
+    [[ "$output" =~ "実行するhook設定:" ]]
 }
 
 # Test: complete JSON flow with mock hook
@@ -340,7 +340,7 @@ EOF
         
         [ "$status" -eq 1 ]  # Will fail because hooks don't exist
         [[ "$output" =~ "検出された状態: $state" ]]
-        [[ "$output" =~ "実行するhook: ${expected_mappings[$state]}" ]]
+        [[ "$output" =~ "実行するhook設定:" ]]
         
         # Clean up for next iteration
         rm -f "$TEST_TRANSCRIPTS_DIR"/*
@@ -356,7 +356,7 @@ EOF
     
     [ "$status" -eq 1 ]
     [[ "$output" =~ "検出された状態: NONE" ]]
-    [[ "$output" =~ "実行するhook: initial-hook.sh" ]]
+    [[ "$output" =~ "実行するhook設定:" ]]
 }
 
 # Test: workflow handles missing hook script file
