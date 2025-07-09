@@ -1,0 +1,185 @@
+{
+  "comment": "TDD重視の開発フロー例（テスト → レビュー → コミット → プッシュ → CI確認）",
+  "hooks": [
+    {
+      "launch": null,
+      "prompt": "tests/test_workflow.shを実行せよ。テストが成功したら、TESTED とのみ表示せよ"
+    },
+    {
+      "launch": "TESTED",
+      "prompt": "SubAgent に Task として作業内容の厳正なレビューを行わせ, その結果をもとに、必要な修正を行え - 自ら git diff やコミット確認を行なって把握せよ - 作業完了したら REVIEWED とは発言せず、作業報告を行うこと #重要 SubAgent のレビューの結果、問題がないと判断されたときのみ、一言だけ REVIEWED とだけ表示せよ。他の情報は一切載せないこと。 ## レビュー観点: - YAGNI：今必要じゃない機能は作らない - DRY：同じコードを繰り返さない - KISS：シンプルに保つ - t-wada TDD：テスト駆動開発 ## 作業報告の内容: $WORK_SUMMARY"
+    },
+    {
+      "launch": "REVIEWED",
+      "prompt": "git commit を実行してください。 コミットメッセージには、作業内容の要約を含めてください。作業が完了したら WORKFLOW_COMMITTED とだけ表示せよ。"
+    },
+    {
+      "launch": "WORKFLOW_COMMITTED",
+      "prompt": "git pushを実行してください。pushが完了したら WORKFLOW_PUSHED とだけ表示せよ。"
+    },
+    {
+      "launch": "WORKFLOW_PUSHED",
+      "path": "hooks/ci-check.sh",
+      "next": "WORKFLOW_CI_CHECKED",
+      "handling": "block"
+    },
+    {
+      "launch": "WORKFLOW_CI_CHECKED",
+      "path": "workflow",
+      "args": ["--stop"]
+    }
+  ]
+}
+
+{
+  "comment": "シンプルなテスト → コミット → 終了フローの例",
+  "hooks": [
+    {
+      "launch": null,
+      "prompt": "npm test を実行せよ。テストがエラーなく完了したら TEST_COMPLETED とだけ表示せよ。"
+    },
+    {
+      "launch": "TEST_COMPLETED",
+      "prompt": "git commit を実行してください。作業が完了したら COMMITTED とだけ表示せよ。"
+    },
+    {
+      "launch": "COMMITTED",
+      "path": "workflow",
+      "args": ["--stop"]
+    }
+  ]
+}
+
+{
+  "comment": "CI/CDパイプライン風の複合フローの例",
+  "hooks": [
+    {
+      "launch": null,
+      "prompt": "プロジェクトのビルドを開始します。次のステップを実行してください：\n1. npm run build\n2. 成功したら BUILD_COMPLETED と表示\n3. 失敗したら BUILD_FAILED と表示"
+    },
+    {
+      "launch": "BUILD_COMPLETED",
+      "prompt": "ビルドが完了しました。次にテストを実行してください：\n1. npm test\n2. 成功したら TEST_PASSED と表示\n3. 失敗したら TEST_FAILED と表示"
+    },
+    {
+      "launch": "TEST_PASSED",
+      "path": "hooks/quality-check.sh",
+      "next": "QUALITY_CHECKED",
+      "handling": "block"
+    },
+    {
+      "launch": "QUALITY_CHECKED",
+      "path": "hooks/deploy.sh",
+      "next": "DEPLOYED",
+      "handling": "raise"
+    },
+    {
+      "launch": "DEPLOYED",
+      "path": "hooks/notification.sh",
+      "next": "WORKFLOW_STOP",
+      "handling": "pass"
+    },
+    {
+      "launch": "BUILD_FAILED",
+      "prompt": "ビルドが失敗しました。エラーを確認して修正してください。修正が完了したら FIXED と表示してください。"
+    },
+    {
+      "launch": "TEST_FAILED",
+      "prompt": "テストが失敗しました。テストエラーを確認して修正してください。修正が完了したら FIXED と表示してください。"
+    },
+    {
+      "launch": "FIXED",
+      "prompt": "修正が完了しました。再度ビルドを開始してください。"
+    },
+    {
+      "launch": "WORKFLOW_STOP",
+      "path": "workflow",
+      "args": ["--stop"]
+    }
+  ]
+}
+
+{
+  "comment": "コードレビュー重視のワークフローの例",
+  "hooks": [
+    {
+      "launch": null,
+      "prompt": "作業内容を確認します。以下の作業報告を分析してください：\n\n$WORK_SUMMARY\n\n分析完了後、ANALYSIS_COMPLETED と表示してください。"
+    },
+    {
+      "launch": "ANALYSIS_COMPLETED",
+      "prompt": "静的解析を実行してください：\n1. npm run lint\n2. npm run type-check\n3. 問題がなければ STATIC_ANALYSIS_PASSED と表示\n4. 問題があれば STATIC_ANALYSIS_FAILED と表示"
+    },
+    {
+      "launch": "STATIC_ANALYSIS_PASSED",
+      "prompt": "単体テストを実行してください：\n1. npm run test:unit\n2. 成功したら UNIT_TEST_PASSED と表示"
+    },
+    {
+      "launch": "UNIT_TEST_PASSED",
+      "path": "hooks/code-review.sh",
+      "next": "CODE_REVIEWED",
+      "handling": "block"
+    },
+    {
+      "launch": "CODE_REVIEWED",
+      "prompt": "git commit を実行してください。作業が完了したら COMMITTED とだけ表示せよ。"
+    },
+    {
+      "launch": "COMMITTED",
+      "path": "workflow",
+      "args": ["--stop"]
+    },
+    {
+      "launch": "STATIC_ANALYSIS_FAILED",
+      "prompt": "静的解析でエラーが見つかりました。修正してください。修正完了後、FIXED と表示してください。"
+    },
+    {
+      "launch": "FIXED",
+      "prompt": "再度静的解析を実行してください。"
+    }
+  ]
+}
+
+{
+  "comment": "最小限のワークフローの例",
+  "hooks": [
+    {
+      "launch": null,
+      "prompt": "作業を確認し、必要に応じて修正を行ってください。完了したら WORK_COMPLETED と表示してください。"
+    },
+    {
+      "launch": "WORK_COMPLETED",
+      "path": "workflow",
+      "args": ["--stop"]
+    }
+  ]
+}
+
+{
+  "comment": "path-typeフックの使用例（スクリプトベースのワークフロー）",
+  "hooks": [
+    {
+      "launch": null,
+      "path": "hooks/start-check.sh",
+      "next": "CHECK_PASSED",
+      "handling": "block"
+    },
+    {
+      "launch": "CHECK_PASSED",
+      "path": "hooks/test-runner.sh",
+      "next": "TEST_COMPLETED",
+      "handling": "raise"
+    },
+    {
+      "launch": "TEST_COMPLETED",
+      "path": "hooks/commit-helper.sh",
+      "next": "COMMITTED",
+      "handling": "pass"
+    },
+    {
+      "launch": "COMMITTED",
+      "path": "workflow",
+      "args": ["--stop"]
+    }
+  ]
+}

@@ -10,36 +10,13 @@ This tool uses hooks triggered at the end of Claude Code sessions to automate wo
 
 ### 1. Create Configuration File
 
-Create a `.claude/workflow.json` file in your project root:
+Copy `workflow.json.example` to `.claude/workflow.json` in your project:
 
-```json
-{
-  "hooks": [
-    {
-      "launch": null,
-      "prompt": "Run npm test. If tests complete without errors, display only TEST_COMPLETED."
-    },
-    {
-      "launch": "TEST_COMPLETED",
-      "path": "self-review.sh",
-      "next": "SELF_REVIEWED",
-      "handling": "pass"
-    },
-    {
-      "launch": "SELF_REVIEWED",
-      "path": "commit.sh",
-      "next": "STOP",
-      "handling": "pass"
-    },
-    {
-      "launch": "STOP",
-      "path": "stop.sh",
-      "next": null,
-      "handling": "pass"
-    }
-  ]
-}
+```bash
+cp workflow.json.example .claude/workflow.json
 ```
+
+Then customize the workflow for your project needs. The configuration file must be placed under the `.claude` directory.
 
 ### 2. Set up workflow.sh
 
@@ -126,7 +103,8 @@ You can reference work content summaries in other hooks:
 WARNING: Configuration file not found: .claude/workflow.json
 INFO: Using default configuration
 ```
-- Create `.claude/workflow.json` file
+- Copy `workflow.json.example` to `.claude/workflow.json`
+- The configuration file must be placed in the `.claude` directory
 - Or you can run with default configuration
 
 ### 2. Script Not Found

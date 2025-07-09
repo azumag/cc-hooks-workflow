@@ -10,10 +10,10 @@
     },
     {
       "launch": "REVIEWED",
-      "prompt": "git commit を実行してください。 コミットメッセージには、作業内容の要約を含めてください。作業が完了したら WORKFLOW_STOP とだけ表示せよ。"
+      "prompt": "git commit を実行してください。 コミットメッセージには、作業内容の要約を含めてください。作業が完了したら WORKFLOW_COMMITTED とだけ表示せよ。"
     },
     {
-      "launch": "WORKFLOW_COMMITED",
+      "launch": "WORKFLOW_COMMITTED",
       "prompt": "git pushを実行してください。pushが完了したら WORKFLOW_PUSHED とだけ表示せよ。"
     },
     {
