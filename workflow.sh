@@ -270,7 +270,7 @@ execute_path_hook() {
     # 標準エラーを一時ファイルにリダイレクトして取得
     local hook_stderr_file
     hook_stderr_file=$(mktemp)
-    echo "$json_input" | "$hook_path" "${args[@]}" 2> "$hook_stderr_file"
+    echo "$json_input" | "$hook_path" ${args[@]+"${args[@]}"} 2> "$hook_stderr_file"
     hook_exit_code=${PIPESTATUS[1]}
     hook_stderr=$(cat "$hook_stderr_file")
     rm -f "$hook_stderr_file"
