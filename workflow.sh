@@ -256,7 +256,7 @@ execute_path_hook() {
         done < <(echo "$hook_config" | jq -r '.args[]? // empty' 2>/dev/null)
         
         # 引数の検証（危険な文字のチェック）
-        for arg in "${args[@]}"; do
+        for arg in ${args[@]+"${args[@]}"}; do
             if [[ "$arg" =~ [\;\|\&\$\`] ]]; then
                 log_error "危険な文字が含まれています: $arg"
                 return 1
