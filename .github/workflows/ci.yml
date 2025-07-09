@@ -77,7 +77,7 @@ jobs:
     - name: Run basic tests
       run: |
         echo "Running basic workflow tests..."
-        ./tests/test_workflow.sh
+        bats tests/test_workflow.sh
         echo "Basic tests completed"
     
     - name: Run integration tests (continue on failure)
