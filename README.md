@@ -96,6 +96,47 @@ You can reference work content summaries in other hooks:
 }
 ```
 
+## Stopping the Workflow Loop
+
+To properly terminate the workflow sequence, you should include a stop hook at the end of your configuration. This prevents the workflow from continuing indefinitely:
+
+```json
+{
+  "launch": "FINAL_STATE",
+  "path": "workflow.sh",
+  "args": ["--stop"]
+}
+```
+
+**Important Notes:**
+- The `--stop` argument tells `workflow.sh` to exit immediately without processing
+- This should be the final hook in your workflow sequence
+- Without this stop hook, the workflow may continue indefinitely or exhibit unexpected behavior
+- The `launch` state should match the final state phrase from your previous hook
+
+**Example Complete Workflow:**
+```json
+{
+  "hooks": [
+    {
+      "launch": null,
+      "path": "hooks/test.sh",
+      "next": "TEST_COMPLETED",
+      "handling": "block"
+    },
+    {
+      "launch": "TEST_COMPLETED",
+      "prompt": "Review and commit changes. Display WORK_FINISHED when done."
+    },
+    {
+      "launch": "WORK_FINISHED",
+      "path": "workflow.sh",
+      "args": ["--stop"]
+    }
+  ]
+}
+```
+
 ## Basic Troubleshooting
 
 ### 1. Configuration File Not Found
