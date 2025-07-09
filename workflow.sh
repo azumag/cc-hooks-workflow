@@ -1,50 +1,50 @@
 #!/bin/bash
 # Hooks Workflow Tool - Main orchestration script
-# Claude Code のStop Hooksの起点スクリプト
-# 全ての状態を管理し、各hooksスクリプトを呼び出す
+# Entry point script for Claude Code Stop Hooks
+# Manages all states and calls individual hook scripts
 
 set -euo pipefail
 
 # ====================
-# 設定とマッピング
+# Configuration and Mapping
 # ====================
 
-# 作業報告ファイルパス（セッションID取得後に設定）
+# Work summary file path (set after obtaining session ID)
 work_summary_tmp_dir=""
 work_summary_file=""
 
-# JSON設定ファイルのパス
+# JSON configuration file path
 CONFIG_FILE=".claude/workflow.json"
 
-# JSON設定を読み込む関数
+# Function to load JSON configuration
 load_config() {
     if [ -f "$CONFIG_FILE" ]; then
         cat "$CONFIG_FILE"
     else
-        log_warning "設定ファイルが見つかりません: $CONFIG_FILE"
+        log_warning "Configuration file not found: $CONFIG_FILE"
         echo "no config found: $CONFIG_FILE" >&2
         exit 1
     fi
 }
 
-# 状態フレーズからhook設定を取得する関数
-# JSON設定からhook情報を返す（JSON形式）
+# Function to get hook configuration from state phrase
+# Returns hook information from JSON configuration (JSON format)
 get_hook_config() {
     local state="$1"
     local config
     config=$(load_config)
     
-    # 状態に対応するhook設定を検索
-    # まず指定されたstateに対応するhook設定を探す
+    # Search for hook configuration corresponding to the state
+    # First look for hook configuration corresponding to the specified state
     local hook_config
     hook_config=$(echo "$config" | jq -r --arg state "$state" '.hooks[] | select(.launch == $state)' 2>/dev/null)
     
-    # 該当するstateが見つからない場合は、launchがnullのエントリ（デフォルト）を探す
+    # If no corresponding state is found, look for entries with null launch (default)
     if [ -z "$hook_config" ] || [ "$hook_config" = "{}" ]; then
         hook_config=$(echo "$config" | jq -r '.hooks[] | select(.launch == null)' 2>/dev/null)
     fi
     
-    # 結果を出力（何も見つからない場合は空のオブジェクト）
+    # Output result (empty object if nothing found)
     if [ -n "$hook_config" ] && [ "$hook_config" != "{}" ]; then
         echo "$hook_config"
     else
@@ -52,16 +52,16 @@ get_hook_config() {
     fi
 }
 
-# 依存関係一覧
+# Dependencies list
 REQUIRED_DEPS=("jq" "grep" "tail" "mktemp")
 
-# 共通のユーティリティ関数を直接実装（shared-utils.shに依存しない）
+# Direct implementation of common utility functions (no dependency on shared-utils.sh)
 
 # ====================
-# ユーティリティ関数
+# Utility Functions
 # ====================
 
-# ログ関数
+# Log functions
 log_info() {
     echo "INFO: $*" >&2
 }
@@ -85,30 +85,30 @@ check_dependencies() {
     done
     
     if [ ${#missing_deps[@]} -gt 0 ]; then
-        log_error "以下の依存関係が見つかりません: ${missing_deps[*]}"
-        log_error "インストールしてから再実行してください"
+        log_error "The following dependencies are missing: ${missing_deps[*]}"
+        log_error "Please install them and run again"
         exit 1
     fi
 }
 
 
-# 最新のトランスクリプトファイルを探す（self-contained implementation）
+# Find latest transcript file (self-contained implementation)
 find_latest_transcript() {
     local transcript_dir="$HOME/.claude/projects"
     
-    # ディレクトリが存在するかチェック
+    # Check if directory exists
     if [ ! -d "$transcript_dir" ]; then
-        log_error "Claude transcriptsディレクトリが見つかりません: $transcript_dir"
+        log_error "Claude transcripts directory not found: $transcript_dir"
         return 1
     fi
     
-    # .jsonlファイルが存在するかチェック
+    # Check if .jsonl files exist
     if ! find "$transcript_dir" -name "*.jsonl" -type f -print -quit | grep -q .; then
-        log_error "Claude transcriptsディレクトリに.jsonlファイルが見つかりません: $transcript_dir"
+        log_error "No .jsonl files found in Claude transcripts directory: $transcript_dir"
         return 2
     fi
     
-    # 最新のファイルを取得（クロスプラットフォーム対応）
+    # Get latest file (cross-platform compatible)
     local latest_file
     if stat -f "%m %N" /dev/null >/dev/null 2>&1; then
         # macOS/BSD stat
@@ -122,7 +122,7 @@ find_latest_transcript() {
         echo "$latest_file"
         return 0
     else
-        log_error "Claude transcriptsファイルへのアクセス中にエラーが発生しました: $transcript_dir"
+        log_error "Error accessing Claude transcripts file: $transcript_dir"
         return 3
     fi
 }
@@ -131,21 +131,21 @@ find_latest_transcript() {
 setup_work_summary_paths() {
     local transcript_path="$1"
     
-    # セッションIDをファイル名から抽出（シンプル化）
+    # Extract session ID from filename (simplified)
     local session_id
     session_id=$(basename "$transcript_path" .jsonl)
     
-    # 簡単な検証とフォールバック
+    # Simple validation and fallback
     if [[ ! "$session_id" =~ ^[a-zA-Z0-9_-]+$ ]]; then
         session_id="unknown"
     fi
     
-    # グローバル変数に設定（/tmp/claude/の下にセッションIDディレクトリを作成）
+    # Set global variable (create session ID directory under /tmp/claude/)
     work_summary_tmp_dir="/tmp/claude/$session_id"
     work_summary_file="$work_summary_tmp_dir/work_summary.txt"
 }
 
-# 共通のアシスタントメッセージ抽出関数
+# Common assistant message extraction function
 extract_assistant_text() {
     local transcript_path="$1"
     
@@ -153,38 +153,38 @@ extract_assistant_text() {
         return 1
     fi
     
-    # 最新のアシスタントメッセージの完全なテキストを取得（改行を含む）
-    # JSONL形式なので、最後のアシスタントメッセージを正しく抽出
+    # Get complete text of latest assistant message (including newlines)
+    # Since it's JSONL format, correctly extract the last assistant message
     local last_assistant_line=$(grep '"type":"assistant"' "$transcript_path" | tail -n 1)
     if [ -n "$last_assistant_line" ]; then
         echo "$last_assistant_line" | jq -r '.message.content[]? | select(.type == "text") | .text'
     fi
 }
 
-# 最新のアシスタントメッセージから状態フレーズを抽出
+# Extract state phrase from latest assistant message
 extract_state_phrase() {
     local transcript_path="$1"
     
-    # 共通関数を使用して最新メッセージを取得
+    # Use common function to get latest message
     extract_assistant_text "$transcript_path"
 }
 
-# 作業報告をセッション固有のパスに保存
+# Save work summary to session-specific path
 save_work_summary() {
     local transcript_path="$1"
    
-    # セッション固有のディレクトリを作成
+    # Create session-specific directory
     mkdir -p "$work_summary_tmp_dir"
     
-    # 共通関数を使用して最後のアシスタントメッセージを取得
+    # Use common function to get last assistant message
     if ! extract_assistant_text "$transcript_path" > "$work_summary_file"; then
-        log_error "アシスタントメッセージの抽出に失敗しました"
+        log_error "Failed to extract assistant message"
         return 1
     fi
     
-    # 作業報告ファイルが空でないことを確認
+    # Verify work summary file is not empty
     if [ ! -s "$work_summary_file" ]; then
-        log_error "作業報告が空です"
+        log_error "Work summary is empty"
         return 1
     fi
 
@@ -192,14 +192,14 @@ save_work_summary() {
 }
 
 
-# promptタイプのhookを実行（Claude Codeにプロンプトを渡す）
+# Execute prompt type hook (pass prompt to Claude Code)
 execute_prompt_hook() {
     local prompt="$1"
     local work_summary_file="$2"
     
-    log_info "プロンプトフックを実行中"
+    log_info "Executing prompt hook"
     
-    # $WORK_SUMMARYを作業報告の内容に置換
+    # Replace $WORK_SUMMARY with work summary content
     if [[ "$prompt" == *'$WORK_SUMMARY'* ]] && [ -f "$work_summary_file" ]; then
         local work_summary_content
         work_summary_content=$(cat "$work_summary_file")
@@ -211,7 +211,7 @@ execute_prompt_hook() {
         '{decision: "block", reason: $reason}'
 }
 
-# pathタイプのhookを実行（従来のスクリプト実行）
+# Execute path type hook (traditional script execution)
 execute_path_hook() {
     local hook_path="$1"
     local work_summary_file="$2"
@@ -220,51 +220,51 @@ execute_path_hook() {
     local hook_config="$5"
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
-    # 相対パスの場合はスクリプトディレクトリを基準にする
+    # Use script directory as base for relative paths
     if [[ ! "$hook_path" = /* ]]; then
         hook_path="$script_dir/$hook_path"
     fi
     
-    # スクリプトの存在確認
+    # Check script existence
     if [ ! -f "$hook_path" ]; then
-        log_error "Hookスクリプトが見つかりません: $hook_path"
+        log_error "Hook script not found: $hook_path"
         return 1
     fi
     
-    # 実行権限の確認
+    # Check execution permissions
     if [ ! -x "$hook_path" ]; then
-        log_error "Hookスクリプトに実行権限がありません: $hook_path"
+        log_error "Hook script does not have execution permissions: $hook_path"
         return 1
     fi
     
-    # JSON入力の準備
+    # Prepare JSON input
     local json_input
     json_input=$(jq -n --arg work_summary_file_path "$work_summary_file" '{work_summary_file_path: $work_summary_file_path}')
     
-    # argsの処理
+    # Process args
     local args=()
     if [ -n "$hook_config" ]; then
-        # JSONの妥当性チェック
+        # JSON validity check
         if ! echo "$hook_config" | jq empty 2>/dev/null; then
-            log_error "不正なJSON形式のhook_config"
+            log_error "Invalid JSON format hook_config"
             return 1
         fi
         
-        # mapfileの代わりにwhileループを使用（古いbashとの互換性のため）
+        # Use while loop instead of mapfile (for compatibility with older bash)
         while IFS= read -r line; do
             args+=("$line")
         done < <(echo "$hook_config" | jq -r '.args[]? // empty' 2>/dev/null)
         
-        # 引数の検証（危険な文字のチェック）
+        # Validate arguments (check for dangerous characters)
         for arg in ${args[@]+"${args[@]}"}; do
             if [[ "$arg" =~ [\;\|\&\$\`] ]]; then
-                log_error "危険な文字が含まれています: $arg"
+                log_error "Dangerous characters found in argument: $arg"
                 return 1
             fi
         done
     fi
     
-    log_info "Hookスクリプトを実行中: $hook_path"
+    log_info "Executing hook script: $hook_path"
     
     local hook_exit_code
     # Redirect both stdout and stderr to temporary files to suppress output
@@ -276,47 +276,47 @@ execute_path_hook() {
     hook_stderr=$(cat "$hook_stderr_file")
     rm -f "$hook_stdout_file" "$hook_stderr_file"
     
-    # handlingに応じた処理
+    # Process based on handling configuration
     case "$handling" in
         "block")
-            # エラーの場合はdecision block JSONを出力してexit 1
+            # On error, output decision block JSON and exit 1
             if [ $hook_exit_code -ne 0 ]; then
-                log_error "Hook実行失敗（block設定）: $hook_path"
-                # decision block JSONをClaudeに通知
-                # TODO: 標準エラーを受け取って、reasonに設定
-                # 標準エラー出力を取得してreasonに含める
+                log_error "Hook execution failed (block setting): $hook_path"
+                # Notify Claude with decision block JSON
+                # TODO: Capture stderr and set as reason
+                # Capture stderr output and include in reason
                 jq -n --arg reason "$hook_stderr" '{decision: "block", reason: $reason}'
                 exit 1
                 
             fi
             ;;
         "raise")
-            # エラーメッセージを標準エラー出力に表示してexit 1
+            # Display error message to stderr and exit 1
             if [ $hook_exit_code -ne 0 ]; then
-                log_error "Hook実行失敗（raise設定）: $hook_path"
-                # TODO: 標準エラーを出力して exit1
+                log_error "Hook execution failed (raise setting): $hook_path"
+                # TODO: Output stderr and exit 1
                 echo "$hook_stderr" >&2
                 exit 1
             fi
             ;;
         "pass"|*)
-            # エラーでも正常終了（exit 0）
+            # Exit normally even on error (exit 0)
             if [ $hook_exit_code -ne 0 ]; then
-                log_warning "Hook実行失敗（pass設定）: $hook_path - エラーを無視します"
+                log_warning "Hook execution failed (pass setting): $hook_path - ignoring error"
             fi
             exit 0
             ;;
     esac
     
-    # hookが成功した場合、nextフレーズが指定されていれば、
-    # next フレーズを表示することをClaudeに通知するため、
-    # decision block JSONを出力
+    # If hook succeeds and next phrase is specified,
+    # notify Claude to display the next phrase by
+    # outputting decision block JSON
     if [ $hook_exit_code -eq 0 ]; then
         if [ -n "$next_phrase" ]; then
-            jq -n --arg reason "$next_phrase とだけ表示せよ" '{decision: "block", reason: $reason}'
+            jq -n --arg reason "Display only: $next_phrase" '{decision: "block", reason: $reason}'
         else
-            # nextフレーズが指定されていない場合は、何も出力しない
-            # そのまま正常終了
+            # If no next phrase is specified, output nothing
+            # Just exit normally
             exit 0
         fi
     fi
@@ -324,17 +324,17 @@ execute_path_hook() {
     return 0
 }
 
-# hook設定に基づいてhookを実行
+# Execute hook based on hook configuration
 execute_hook() {
     local hook_config="$1"
     local work_summary_file="$2"
     
-    # hook設定が空の場合は何もしない
+    # Do nothing if hook configuration is empty
     if [ -z "$hook_config" ] || [ "$hook_config" = "{}" ]; then
         return 0
     fi
     
-    # hook設定からタイプを判定
+    # Determine type from hook configuration
     local prompt
     prompt=$(echo "$hook_config" | jq -r '.prompt // empty')
     local path
@@ -345,90 +345,90 @@ execute_hook() {
     handling=$(echo "$hook_config" | jq -r '.handling // "pass"')
     
     if [ -n "$prompt" ]; then
-        # promptタイプのhook
+        # Prompt type hook
         execute_prompt_hook "$prompt" "$work_summary_file"
     elif [ -n "$path" ]; then
-        # pathタイプのhook
+        # Path type hook
         execute_path_hook "$path" "$work_summary_file" "$next" "$handling" "$hook_config"
     else
-        log_warning "hook設定にpromptもpathも指定されていません"
+        log_warning "Neither prompt nor path specified in hook configuration"
         return 0
     fi
 }
 
 # ====================
-# メイン処理
+# Main Processing
 # ====================
 
 main() {
-    log_info "Workflow開始"
+    log_info "Starting workflow"
     
     # Dependency check
     check_dependencies
     
-    # 最新のトランスクリプトファイルを探す
+    # Find latest transcript file
     local transcript_path
     if ! transcript_path=$(find_latest_transcript); then
-        log_error "トランスクリプトファイルが見つかりません"
+        log_error "Transcript file not found"
         exit 1
     fi
     
-    log_info "トランスクリプトファイル: $transcript_path"
+    log_info "Transcript file: $transcript_path"
     
     # Get session ID and set work_summary_file_path
     setup_work_summary_paths "$transcript_path"
     
-    # 状態フレーズを抽出
+    # Extract state phrase
     local state_phrase
     if ! state_phrase=$(extract_state_phrase "$transcript_path"); then
-        log_error "状態フレーズの抽出に失敗しました"
+        log_error "Failed to extract state phrase"
         exit 1
     fi
     
-    log_info "検出された状態: $state_phrase"
+    log_info "Detected state: $state_phrase"
     
-    # 状態に対応するhook設定を取得
+    # Get hook configuration corresponding to the state
     local hook_config
     hook_config=$(get_hook_config "$state_phrase")
     
     if [ -z "$hook_config" ] || [ "$hook_config" = "{}" ]; then
-        # 定義していない状態フレーズの場合は、エラーではない。
-        # 純粋にフックを設定していないだけなので、正常終了する。
-        log_info "状態 '$state_phrase' に対応するフックが設定されていません"
+        # If state phrase is not defined, it's not an error.
+        # Simply no hook is configured, so exit normally.
+        log_info "No hook configured for state '$state_phrase'"
         exit 0
     fi
     
-    log_info "実行するhook設定: $(echo "$hook_config" | jq -c '.')"
+    log_info "Hook configuration to execute: $(echo "$hook_config" | jq -c '.')"
     
-    # launchがnullの場合（初回実行）のみ作業報告を保存
+    # Save work summary only when launch is null (initial execution)
     local launch
     launch=$(echo "$hook_config" | jq -r '.launch // empty')
     
     if [ -z "$launch" ] || [ "$launch" = "null" ]; then
-        # 状態フレーズが指定されていない場合のみ作業報告を保存
+        # Save work summary only when no state phrase is specified
         if ! work_summary_file=$(save_work_summary "$transcript_path"); then
-            log_error "作業報告の保存に失敗しました"
+            log_error "Failed to save work summary"
             exit 1
         fi
-        log_info "新しい作業報告ファイルを作成: $work_summary_file"
+        log_info "Created new work summary file: $work_summary_file"
     fi
    
-    # hook設定に基づいてhookを実行
+    # Execute hook based on hook configuration
     if execute_hook "$hook_config" "$work_summary_file"; then
-        log_info "Workflow完了"
+        log_info "Workflow completed"
         exit 0
     else
-        log_info "Workflow失敗"
+        log_info "Workflow failed"
         exit 1
     fi
 }
 
-# --stop オプションが渡された場合は即座に終了
+# Exit immediately if --stop option is passed
 if [ "${1:-}" = "--stop" ]; then
     exit 0
 fi
 
-# スクリプトが直接実行された場合のみmainを実行
+# Execute main only when script is run directly
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
     main "$@"
 fi
