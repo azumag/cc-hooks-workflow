@@ -2,14 +2,16 @@
   "hooks": [
     {
       "launch": null,
-      "prompt": "tests/test_workflow.shを実行せよ。テストが成功したら、TESTED とのみ表示せよ"
+      "path": "hooks/workflow-test.sh",
+      "next": "WORKFLOW_TESTED",
+      "handling": "block"
     },
     {
-      "launch": "TESTED",
-      "prompt": "SubAgent に Task として作業内容の厳正なレビューを行わせ, その結果をもとに、必要な修正を行え - 自ら git diff やコミット確認を行なって把握せよ - 作業完了したら REVIEWED とは発言せず、作業報告を行うこと #重要 SubAgent のレビューの結果、問題がないと判断されたときのみ、一言だけ REVIEWED とだけ表示せよ。他の情報は一切載せないこと。 ## レビュー観点: - YAGNI：今必要じゃない機能は作らない - DRY：同じコードを繰り返さない - KISS：シンプルに保つ - t-wada TDD：テスト駆動開発 ## 作業報告の内容: $WORK_SUMMARY"
+      "launch": "WORKFLOW_TESTED",
+      "prompt": "#最重要 レビューに基づく修正作業が完了したら WORKFLOW_REVIEWED とは発言せず、作業報告を行うこと - レビューの結果、問題がないと判断されたときのみ、**一行だけ WORKFLOW_REVIEWED とだけ表示せよ**。**他の情報は一切載せないこと** # 作業報告: $WORK_SUMMARY #Review SubAgent に Task として作業内容の厳正なレビューを行わせ, その結果をもとに、必要な修正を行え - 自ら git diff やコミット確認を行なって把握せよ ## レビュー観点: - YAGNI：今必要じゃない機能は作らない - DRY：同じコードを繰り返さない - KISS：シンプルに保つ - t-wada TDD：テスト駆動開発 - 。  "
     },
     {
-      "launch": "REVIEWED",
+      "launch": "WORKFLOW_REVIEWED",
       "prompt": "git commit を実行してください。 コミットメッセージには、作業内容の要約を含めてください。作業が完了したら WORKFLOW_COMMITTED とだけ表示せよ。"
     },
     {
@@ -24,7 +26,7 @@
     },
     {
       "launch": "WORKFLOW_CI_CHECKED",
-      "path": "workflow",
+      "path": "workflow.sh",
       "args": ["--stop"]
     }
   ]

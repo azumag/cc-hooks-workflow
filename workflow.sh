@@ -74,7 +74,7 @@ log_error() {
     echo "ERROR: $*" >&2
 }
 
-# 依存関係チェック
+# Dependency check
 check_dependencies() {
     local missing_deps=()
     
@@ -127,7 +127,7 @@ find_latest_transcript() {
     fi
 }
 
-# セッションIDを取得してwork_summary_file_pathを設定
+# Get session ID and set work_summary_file_path
 setup_work_summary_paths() {
     local transcript_path="$1"
     
@@ -267,13 +267,14 @@ execute_path_hook() {
     log_info "Hookスクリプトを実行中: $hook_path"
     
     local hook_exit_code
-    # 標準エラーを一時ファイルにリダイレクトして取得
-    local hook_stderr_file
+    # Redirect both stdout and stderr to temporary files to suppress output
+    local hook_stdout_file hook_stderr_file
+    hook_stdout_file=$(mktemp)
     hook_stderr_file=$(mktemp)
-    echo "$json_input" | "$hook_path" ${args[@]+"${args[@]}"} 2> "$hook_stderr_file"
+    echo "$json_input" | "$hook_path" ${args[@]+"${args[@]}"} > "$hook_stdout_file" 2> "$hook_stderr_file"
     hook_exit_code=${PIPESTATUS[1]}
     hook_stderr=$(cat "$hook_stderr_file")
-    rm -f "$hook_stderr_file"
+    rm -f "$hook_stdout_file" "$hook_stderr_file"
     
     # handlingに応じた処理
     case "$handling" in
@@ -312,7 +313,7 @@ execute_path_hook() {
     # decision block JSONを出力
     if [ $hook_exit_code -eq 0 ]; then
         if [ -n "$next_phrase" ]; then
-            jq -n --arg reason "$next_phrase と表示せよ" '{decision: "block", reason: $reason}'
+            jq -n --arg reason "$next_phrase とだけ表示せよ" '{decision: "block", reason: $reason}'
         else
             # nextフレーズが指定されていない場合は、何も出力しない
             # そのまま正常終了
@@ -362,7 +363,7 @@ execute_hook() {
 main() {
     log_info "Workflow開始"
     
-    # 依存関係チェック
+    # Dependency check
     check_dependencies
     
     # 最新のトランスクリプトファイルを探す
@@ -374,7 +375,7 @@ main() {
     
     log_info "トランスクリプトファイル: $transcript_path"
     
-    # セッションIDを取得してwork_summary_file_pathを設定
+    # Get session ID and set work_summary_file_path
     setup_work_summary_paths "$transcript_path"
     
     # 状態フレーズを抽出
