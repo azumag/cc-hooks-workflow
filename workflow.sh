@@ -284,7 +284,7 @@ execute_path_hook() {
                 # decision block JSONをClaudeに通知
                 # TODO: 標準エラーを受け取って、reasonに設定
                 # 標準エラー出力を取得してreasonに含める
-                jq -n --arg reason $hook_stderr '{decision: "block", reason: $reason}'
+                jq -n --arg reason "$hook_stderr" '{decision: "block", reason: $reason}'
                 exit 1
                 
             fi
@@ -294,7 +294,7 @@ execute_path_hook() {
             if [ $hook_exit_code -ne 0 ]; then
                 log_error "Hook実行失敗（raise設定）: $hook_path"
                 # TODO: 標準エラーを出力して exit1
-                echo $hook_stderr >&2
+                echo "$hook_stderr" >&2
                 exit 1
             fi
             ;;
