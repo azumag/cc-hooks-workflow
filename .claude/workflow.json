@@ -10,14 +10,20 @@
     },
     {
       "launch": "REVIEWED",
-      "prompt": "コミットを実行してください。 コミットメッセージには、作業内容の要約を含めてください。作業が完了したら WORKFLOW_STOP とだけ表示せよ。"
+      "prompt": "git commit を実行してください。 コミットメッセージには、作業内容の要約を含めてください。作業が完了したら WORKFLOW_STOP とだけ表示せよ。"
     },
     {
       "launch": "WORKFLOW_COMMITED",
-      "prompt": "pushを実行してください。pushが完了したら WORKFLOW_PUSHED とだけ表示せよ。"
+      "prompt": "git pushを実行してください。pushが完了したら WORKFLOW_PUSHED とだけ表示せよ。"
     },
     {
-      "launch": "WORKFLOW_STOP",
+      "launch": "WORKFLOW_PUSHED",
+      "path": "hooks/ci-check.sh",
+      "next": "WORKFLOW_CI_CHECKED",
+      "handling": "block"
+    },
+    {
+      "launch": "WORKFLOW_CI_CHECKED",
       "path": "workflow",
       "args": ["--stop"]
     }
