@@ -26,6 +26,10 @@
     },
     {
       "launch": "WORKFLOW_CI_CHECKED",
+      "prompt": "CLAUDE.md を再確認せよ。再確認後、 WORKFLOW_CLAUDE_RECALL とだけ表示せよ。"
+    },
+    {
+      "launch": "WORKFLOW_CLAUDE_RECALL",
       "path": "workflow.sh",
       "args": ["--stop"]
     }
