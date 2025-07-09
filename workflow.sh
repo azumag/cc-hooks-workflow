@@ -267,13 +267,8 @@ execute_path_hook() {
     
     log_info "Hookスクリプトを実行中: $hook_path"
     
-    # nextパラメータがある場合は--phraseオプションとして渡す
     local hook_exit_code
-    if [ -n "$next_phrase" ] && [ "$next_phrase" != "null" ]; then
-        echo "$json_input" | "$hook_path" --phrase="$next_phrase" "${args[@]}"
-    else
-        echo "$json_input" | "$hook_path" "${args[@]}"
-    fi
+    echo "$json_input" | "$hook_path" "${args[@]}"
     hook_exit_code=${PIPESTATUS[1]}
     
     # handlingに応じた処理
@@ -283,14 +278,8 @@ execute_path_hook() {
             if [ $hook_exit_code -ne 0 ]; then
                 log_error "Hook実行失敗（block設定）: $hook_path"
                 # decision block JSONをClaudeに通知
-                cat <<EOF
-{
-  "type": "decision_block",
-  "hook": "$hook_path",
-  "exit_code": $hook_exit_code,
-  "message": "Hook execution failed with block handling"
-}
-EOF
+                # TODO: 標準エラーを受け取って、reasonに設定
+                jq -n --arg reason "Hook execution failed with block handling" '{decision: "block", reason: $reason}'
                 exit 1
             fi
             ;;
@@ -298,6 +287,7 @@ EOF
             # エラーメッセージを標準エラー出力に表示してexit 1
             if [ $hook_exit_code -ne 0 ]; then
                 log_error "Hook実行失敗（raise設定）: $hook_path"
+                # TODO: 標準エラーを出力して exit1
                 exit 1
             fi
             ;;
@@ -306,15 +296,23 @@ EOF
             if [ $hook_exit_code -ne 0 ]; then
                 log_warning "Hook実行失敗（pass設定）: $hook_path - エラーを無視します"
             fi
+            exit 0
             ;;
     esac
     
-    # nextフレーズの処理
-    if [ -n "$next_phrase" ] && [ "$next_phrase" != "null" ] && [ $hook_exit_code -eq 0 ]; then
-        # hookが成功した場合、nextフレーズを標準出力に出力
-        echo "$next_phrase"
+    # hookが成功した場合、nextフレーズが指定されていれば、
+    # next フレーズを表示することをClaudeに通知するため、
+    # decision block JSONを出力
+    if [ $hook_exit_code -eq 0 ]; then
+        if [ -n "$next_phrase" ]; then
+            jq -n --arg reason "$next_phrase と表示せよ" '{decision: "block", reason: $reason}'
+        else
+            # nextフレーズが指定されていない場合は、何も出力しない
+            # そのまま正常終了
+            exit 0
+        fi
     fi
-    
+
     return 0
 }
 
