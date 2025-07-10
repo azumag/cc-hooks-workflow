@@ -18,6 +18,12 @@ cp workflow.json.example .claude/workflow.json
 
 Then customize the workflow for your project needs. The configuration file must be placed under the `.claude` directory.
 
+### Configuration File Location
+
+The workflow.sh script searches for the configuration file in the following order:
+1. Git repository root: `<git-root>/.claude/workflow.json` (if in a git repository)
+2. Current directory: `./.claude/workflow.json` (fallback)
+
 ### 2. Set up workflow.sh
 
 Make `workflow.sh` executable and configure it as a Claude Code Stop Hook:
@@ -174,10 +180,29 @@ ERROR: Claude transcripts directory not found
 - Verify Claude Code is properly installed
 - Check if `~/.claude/projects/` directory exists
 
+### 6. Claude AI Rate Limit Errors
+If you encounter rate limit errors from Claude AI, the workflow will:
+- Automatically skip error messages and find the last valid assistant response
+- Continue with the workflow using the most recent valid work summary
+
+### 7. CI Check Hanging Issue
+If ci-check.sh appears to hang indefinitely:
+- This was fixed to properly handle projects without GitHub Actions
+- The script now exits normally when no workflow runs are found
+- No manual intervention required for projects without CI setup
+
+## Cross-platform Compatibility
+
+This tool supports both Linux and macOS environments:
+- **Linux**: Uses `tac` command for reverse text processing
+- **macOS**: Uses `tail -r` command as an alternative
+- **Fallback**: Works even without these commands with slightly reduced performance
+
 ## Requirements
 
 - jq
 - grep
 - tail
+- tac or tail -r (platform-specific, see Cross-platform Compatibility section)
 - mktemp
 - bash (4.0+ recommended)
