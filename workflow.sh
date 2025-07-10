@@ -313,7 +313,7 @@ execute_path_hook() {
     # outputting decision block JSON
     if [ $hook_exit_code -eq 0 ]; then
         if [ -n "$next_phrase" ]; then
-            jq -n --arg reason "Please Display only this Phrase: $next_phrase | $next_phrase とだけ表示せよ" '{decision: "block", reason: $reason}'
+            jq -n --arg reason "Please Display only this Phrase: $next_phrase" '{decision: "block", reason: $reason}'
         else
             # If no next phrase is specified, output nothing
             # Just exit normally
