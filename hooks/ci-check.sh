@@ -107,10 +107,9 @@ monitor_ci() {
 
         # Check if there are any runs
         if [ "$(echo "$run_data" | jq '. | length')" -eq 0 ]; then
-            echo "No workflow runs found for branch $branch" >&2
-            echo "No workflow runs found for branch $branch" >"$log_dir/ci_monitor.log"
-            sleep $delay
-            continue
+            echo "No workflow runs found for branch $branch - CI check passed" >&2
+            echo "No workflow runs found for branch $branch - CI check passed" >"$log_dir/ci_monitor.log"
+            exit 0
         fi
 
         # Check all workflow runs status

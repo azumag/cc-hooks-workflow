@@ -185,6 +185,12 @@ If you encounter rate limit errors from Claude AI, the workflow will:
 - Automatically skip error messages and find the last valid assistant response
 - Continue with the workflow using the most recent valid work summary
 
+### 7. CI Check Hanging Issue
+If ci-check.sh appears to hang indefinitely:
+- This was fixed to properly handle projects without GitHub Actions
+- The script now exits normally when no workflow runs are found
+- No manual intervention required for projects without CI setup
+
 ## Cross-platform Compatibility
 
 This tool supports both Linux and macOS environments:
