@@ -22,7 +22,6 @@ load_config() {
         cat "$CONFIG_FILE"
     else
         log_warning "Configuration file not found: $CONFIG_FILE"
-        echo "no config found: $CONFIG_FILE" >&2
         exit 1
     fi
 }
@@ -145,6 +144,24 @@ setup_work_summary_paths() {
     work_summary_file="$work_summary_tmp_dir/work_summary.txt"
 }
 
+# Helper function to process assistant line
+process_assistant_line() {
+    local line="$1"
+    # APIエラーメッセージをスキップ
+    if echo "$line" | jq -e '.isApiErrorMessage == true' >/dev/null 2>&1; then
+        return 1
+    fi
+    
+    # テキストコンテンツを抽出
+    local text
+    text=$(echo "$line" | jq -r '.message.content[]? | select(.type == "text") | .text' 2>/dev/null)
+    if [ -n "$text" ]; then
+        echo "$text"
+        return 0
+    fi
+    return 1
+}
+
 # Common assistant message extraction function
 extract_assistant_text() {
     local transcript_path="$1"
@@ -153,21 +170,44 @@ extract_assistant_text() {
         return 1
     fi
     
-    # Get complete text of latest assistant message (including newlines)
-    # Since it's JSONL format, correctly extract the last assistant message
-    local last_assistant_line=$(grep '"type":"assistant"' "$transcript_path" | tail -n 1)
-    if [ -n "$last_assistant_line" ]; then
-        echo "$last_assistant_line" | jq -r '.message.content[]? | select(.type == "text") | .text'
+    # リバースコマンドを決定
+    local reverse_cmd
+    if command -v tac >/dev/null 2>&1; then
+        reverse_cmd="tac"
+    elif tail -r /dev/null >/dev/null 2>&1; then
+        reverse_cmd="tail -r"
+    else
+        reverse_cmd=""
     fi
+    
+    # アシスタントメッセージを処理
+    local text_content=""
+    if [ -n "$reverse_cmd" ]; then
+        # リバース処理
+        while IFS= read -r line; do
+            if text_content=$(process_assistant_line "$line") && [ -n "$text_content" ]; then
+                echo "$text_content"
+                return 0
+            fi
+        done < <(grep '"type":"assistant"' "$transcript_path" | $reverse_cmd)
+    else
+        # 通常処理（最後のものを保持）
+        while IFS= read -r line; do
+            local temp_text
+            if temp_text=$(process_assistant_line "$line") && [ -n "$temp_text" ]; then
+                text_content="$temp_text"
+            fi
+        done < <(grep '"type":"assistant"' "$transcript_path")
+        
+        if [ -n "$text_content" ]; then
+            echo "$text_content"
+            return 0
+        fi
+    fi
+    
+    return 1
 }
 
-# Extract state phrase from latest assistant message
-extract_state_phrase() {
-    local transcript_path="$1"
-    
-    # Use common function to get latest message
-    extract_assistant_text "$transcript_path"
-}
 
 # Save work summary to session-specific path
 save_work_summary() {
@@ -257,7 +297,7 @@ execute_path_hook() {
         
         # Validate arguments (check for dangerous characters)
         for arg in ${args[@]+"${args[@]}"}; do
-            if [[ "$arg" =~ [\;\|\&\$\`] ]]; then
+            if [[ "$arg" =~ [\;\|\&\$\`\\$'\n\r\t'] ]]; then
                 log_error "Dangerous characters found in argument: $arg"
                 return 1
             fi
@@ -356,12 +396,33 @@ execute_hook() {
     fi
 }
 
+# Function to find project root
+find_project_root() {
+    local git_root
+    if git_root=$(git rev-parse --show-toplevel 2>/dev/null); then
+        echo "$git_root"
+        return 0
+    fi
+    
+    # フォールバック：現在のディレクトリ（絶対パスに正規化）
+    local current_dir
+    current_dir=$(cd "$(pwd)" && pwd -P 2>/dev/null) || {
+        log_error "Failed to determine current directory"
+        return 1
+    }
+    echo "$current_dir"
+}
+
 # ====================
 # Main Processing
 # ====================
 
 main() {
     log_info "Starting workflow"
+    
+    # Update CONFIG_FILE to use absolute path
+    PROJECT_ROOT=$(find_project_root)
+    CONFIG_FILE="$PROJECT_ROOT/.claude/workflow.json"
     
     # Dependency check
     check_dependencies
@@ -380,7 +441,7 @@ main() {
     
     # Extract state phrase
     local state_phrase
-    if ! state_phrase=$(extract_state_phrase "$transcript_path"); then
+    if ! state_phrase=$(extract_assistant_text "$transcript_path"); then
         log_error "Failed to extract state phrase"
         exit 1
     fi

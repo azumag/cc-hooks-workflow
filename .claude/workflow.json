@@ -26,6 +26,10 @@
     },
     {
       "launch": "WORKFLOW_CI_CHECKED",
+      "prompt": "commit履歴を確認し、README.md を更新せよ。更新後、 WORKFLOW_README_UPDATED とだけ表示せよ。"
+    },
+    {
+      "launch": "WORKFLOW_README_UPDATED",
       "prompt": "CLAUDE.md を再確認せよ。再確認後、 WORKFLOW_CLAUDE_RECALL とだけ表示せよ。"
     },
     {
